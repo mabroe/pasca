@@ -68,3 +68,15 @@ Der Fortschritt wird aus den Daten erkannt.
 - Scans, PDFs und Erwartungshorizont sind simuliert; „PDF“ = Druckansicht des Browsers.
 - „Demo-Abkürzung“ korrigiert übrige Mappen automatisch, damit Klickstrecken kurz bleiben.
 - Nachscan-Anforderung der Erstkorrektur ist (wie im Lastenheft) nicht systemgestützt.
+
+## Neu in Version 1.0 (02.11.2026)
+
+- **Korrekturkalender** (IBBW → Korrekturkalender): globale Korrekturzeiträume je Abiturjahr, Schulform (BG/AG) und Terminart. Prüfungen übernehmen sie bei der Anlage und bleiben verknüpft; einzelne Prüfungen können abweichend festgelegt werden.
+- **Prüfungsanlage**: Zweitkorrektur-Modus („setzt alle Zeichen neu“ / „markiert nur Abweichungen“), Auswahl der Korrekturzeichen je Prüfung und je Prüfungsteil.
+- **Bewertungsraster v2**: Prüfungsteile mit eigener Bewertungsart (BE, Notenpunkte, Prozent, Fehlerzahl, nicht korrekturrelevant), Aufgabenbaum beliebiger Tiefe, Wahlregeln „k aus n“ (Schüler- oder Lehrerwahl, verschachtelt), Kombination und Rundung je Fach, Kappung, Zusatz-BE, halbe BE, Gutachten mit Gliederung und landesweiten Textbausteinen, Formblatt-PDF. Editor mit Prüfung und Testrechnung.
+- **Excel-Import** der Aufgabenstruktur (Format der übergebenen Datei) inkl. Vorlage und Beispiel.
+- **Testkorrektur**: jedes Raster im echten Korrekturmodus ausprobieren (Bewertungsraster → Test).
+- **Korrekturmodus**: Unterstreichen und Stift mit Zeichenvorschlag, gewichtete Zeichen und Zeichen mit Anzahl (Fehlerzahl aus Zeichen), Prüfungsteil-Auswahl, „nicht bearbeitet“, Lehrerwahl je Kursmappe, Hinweis der EK an die ZK, Gutachten aus Bausteinen (für die ZK nicht sichtbar), Formblatt-Upload, Kommunikationsprüfung als Notenpunkte (auch nach Abschluss durch die Schulleitung).
+- **Endbeurteilung AG**: zusätzlich Stichprobe von 2 Prüfungen je Kurs.
+- **Konzeptpapier**: Erkennung über die Farbmarkierung, beim Scannen umkennzeichenbar.
+- Neue Klickstrecke 9 „Bewertungsraster und Korrekturfunktionen“; Beispielraster für VBWL, Deutsch, Mathematik, Englisch, GMT, Latein und Bildende Kunst.

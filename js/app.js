@@ -12,7 +12,7 @@
       tasks: ["Prüfungsfächer, Korrekturzeichensätze und Korrekturrichtlinien verwalten", "Bewertungsraster mit Pflicht-/Wahlaufgaben, BE und Regeln anlegen, duplizieren, freigeben", "Prüfungen mit Haupt-, Nach- und Nachnachtermin und Korrekturzeiträumen anlegen", "Erwartungshorizont am Prüfungstag hochladen, ersetzen oder löschen"],
       rights: ["Bewertungsgrundlagen bis Prüfungsende nur für die anlegende Person sowie Referats- und Abteilungsleitung", "Keine Einsicht in personenbezogene Prüfungsunterlagen"],
       awf: "AWF-004 bis AWF-058", process: ["Prüfung anlegen"],
-      nav: [["#/ibbw", "layout-dashboard", "Übersicht"], ["#/ibbw/pruefungen", "clipboard-list", "Prüfungen"], ["#/ibbw/faecher", "book-open", "Prüfungsfächer"], ["#/ibbw/raster", "table", "Bewertungsraster"], ["#/ibbw/regeln", "sigma", "Regeln"], ["#/ibbw/zeichen", "pen-line", "Korrekturzeichen"], ["#/ibbw/richtlinien", "book-text", "Richtlinien"]] },
+      nav: [["#/ibbw", "layout-dashboard", "Übersicht"], ["#/ibbw/pruefungen", "clipboard-list", "Prüfungen"], ["#/ibbw/kalender", "calendar-range", "Korrekturkalender"], ["#/ibbw/faecher", "book-open", "Prüfungsfächer"], ["#/ibbw/raster", "table", "Bewertungsraster"], ["#/ibbw/regeln", "sigma", "Regeln"], ["#/ibbw/zeichen", "pen-line", "Korrekturzeichen"], ["#/ibbw/richtlinien", "book-text", "Richtlinien"]] },
     svc: { label: "Service Center Schule (IBBW)", short: "Service Center", icon: "shield-check", group: "Land", home: "#/svc/audit", persons: ["t.wendling"],
       tasks: ["Audit-Log einsehen, filtern, durchsuchen und exportieren", "Archiv und Aufbewahrungsfristen überwachen (5 Jahre), Löschlauf", "Support für Schulen und Regierungspräsidien"],
       rights: ["Lesezugriff auf das revisionssichere Ereignisprotokoll", "Sensible Daten im Audit-Log teilweise pseudonymisiert"], awf: "AWF-125 bis AWF-127", process: ["Berichtswesen", "Prüfungsergebnisse verwalten"],
@@ -170,6 +170,6 @@
   PX.phaseBar = (km) => { const p = PX.phase(km); return `<div class="phasebar">${PX.PHASES.map((l, i) => `<span class="${i < p.step ? "done" : i === p.step ? "cur" : ""}">${esc(l)}</span>`).join("")}</div>`; };
   PX.stageColor = { ek: "red", zk: "green", eb: "brown" };
 
-  PX.VERSION = "0.9";
+  PX.VERSION = "1.0";
   PX.start = function () { PX.load(); PX.render(); };
 })();

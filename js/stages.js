@@ -10,12 +10,12 @@
 
   const STAGES = [
     ["basis", "Stammdaten, Bewertungsraster des Vorjahres", () => {}],
-    ["pruefung", "Prüfung VBWL 2027 angelegt (Haupt-, Nach-, Nachnachtermin)", () => as("r.albrecht", () => {
+    ["pruefung", "Prüfung VBWL 2027 angelegt (Haupt-, Nach-, Nachnachtermin; Korrekturkalender BG)", () => as("r.albrecht", () => {
       const r = O().duplicateRaster("rs-vbwl-26", "VBWL – Haupttermin 2027", 2027); O().releaseRaster(r.id);
       O().createExams({ subject: "vbwl", raster: r.id, guideline: "kr-allg", zusatz: false, terms: [
-        { type: "HT", date: "2027-04-20", time: "08:30", end: "13:00", ekEnd: "2027-05-07", zkEnd: "2027-05-21", ebStart: "2027-05-25", ebEnd: "2027-06-04" },
-        { type: "NT", date: "2027-05-11", time: "08:30", end: "13:00", ekEnd: "2027-05-26", zkEnd: "2027-06-09", ebStart: "2027-06-11", ebEnd: "2027-06-18" },
-        { type: "NNT", date: "2027-06-08", time: "08:30", end: "13:00", ekEnd: "2027-06-18", zkEnd: "2027-06-29", ebStart: "2027-07-01", ebEnd: "2027-07-07" },
+        { type: "HT", date: "2027-04-20", time: "08:30", end: "13:00" },
+        { type: "NT", date: "2027-05-11", time: "08:30", end: "13:00" },
+        { type: "NNT", date: "2027-06-08", time: "08:30", end: "13:00" },
       ] });
     })],
     ["import", "Daten importiert (ASV), Kursmappen freigegeben", () => {

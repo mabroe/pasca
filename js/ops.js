@@ -10,15 +10,16 @@
   PX.STAGE = { ek: "Erstkorrektur", zk: "Zweitkorrektur", eb: "Endbeurteilung" };
   PX.STAGE_SHORT = { ek: "EK", zk: "ZK", eb: "EB" };
   PX.subj = (id) => PX.byId("subjects", id);
-  PX.exam = (id) => PX.byId("exams", id);
-  PX.km = (id) => PX.byId("kms", id);
-  PX.mappe = (id) => PX.byId("mappen", id);
+  const sbx = (col, id) => (S().sandbox?.[col] || []).find((x) => x.id === id) || null;
+  PX.exam = (id) => PX.byId("exams", id) || sbx("exams", id);
+  PX.km = (id) => PX.byId("kms", id) || sbx("kms", id);
+  PX.mappe = (id) => PX.byId("mappen", id) || sbx("mappen", id);
   PX.examLabel = (ex) => { if (typeof ex === "string") ex = PX.exam(ex); if (!ex) return "–"; const s = PX.subj(ex.subject); return `${s ? s.name : ex.subject} · ${PX.TYPE[ex.type]} ${ex.year}`; };
   PX.examShort = (ex) => { if (typeof ex === "string") ex = PX.exam(ex); if (!ex) return "–"; const s = PX.subj(ex.subject); return `${s ? s.short : ex.subject} ${ex.type} ${ex.year}`; };
   PX.raster = (ex) => PX.byId("rasters", (typeof ex === "string" ? PX.exam(ex) : ex)?.raster);
   PX.signsFor = (subject) => S().signs.filter((z) => z.subjects.includes(subject));
   PX.kmLabel = (km) => { if (typeof km === "string") km = PX.km(km); return km ? `${km.name} · ${PX.orgShort(km.school)}` : "–"; };
-  PX.mappenOf = (km) => S().mappen.filter((m) => m.km === (km.id || km)).sort((a, b) => a.nr.localeCompare(b.nr));
+  PX.mappenOf = (km) => (String(km.id || km).startsWith("sbx-") ? S().sandbox?.mappen || [] : S().mappen).filter((m) => m.km === (km.id || km)).sort((a, b) => a.nr.localeCompare(b.nr));
   PX.activeMappen = (km) => PX.mappenOf(km).filter((m) => !m.absent);
   PX.groupOf = (km) => S().groups.find((g) => g.km === (km.id || km)) || null;
   PX.schools = () => S().orgs.filter((o) => o.kind === "schule");
@@ -34,34 +35,23 @@
   PX.pseudo = (m) => { const list = PX.activeMappen(PX.km(m.km)); const i = list.findIndex((x) => x.id === m.id); return "Mappe " + String(i + 1).padStart(2, "0"); };
   PX.hash = (s) => { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return (h >>> 0) / 4294967295; };
 
-  // ---------- Bewertung ----------
-  PX.npFromPct = (pct, key = PX.NS_ABI) => { for (const [min, np] of key) if (pct >= min) return np; return 0; };
-  PX.chosenTasks = (raster, c) => {
-    if (!raster) return [];
-    const wahlGroups = new Set((raster.wahl || []).flatMap((w) => w.groups));
-    return raster.tasks.filter((t) => t.kind === "pflicht" || !wahlGroups.has(t.group) || (c && c.wahl && c.wahl.includes(t.group)));
+  // ---------- Korrekturkalender ----------
+  PX.CAL_FIELDS = [["ekEnd", "Ende Erstkorrektur"], ["zkEnd", "Ende Zweitkorrektur"], ["ebStart", "Beginn Endbeurteilung"], ["ebEnd", "Ende Endbeurteilung"]];
+  PX.calendarFor = (form, type, year) => S().calendars.find((c) => c.form === form && c.type === type && c.year === year) || null;
+  PX.examForm = (ex) => PX.schulform(ex.subject);
+  // Prüfung mit Korrekturkalender verknüpfen und Voreinstellungen ergänzen
+  PX.initExam = function (e, st) {
+    st = st || S();
+    const subj = st.subjects.find((x) => x.id === e.subject); const form = /allgemein/i.test(subj?.form || "") ? "AG" : "BG";
+    const cal = st.calendars.find((c) => c.form === form && c.type === e.type && c.year === e.year);
+    if (cal && !e.ekEnd) { e.cal = cal.id; PX.CAL_FIELDS.forEach(([f]) => (e[f] = cal[f])); }
+    if (!e.zkMode) e.zkMode = "neu";
+    if (!e.partSigns) e.partSigns = {};
+    if (!e.signset) e.signset = st.signs.filter((z) => z.subjects.includes(e.subject)).map((z) => z.id);
+    return e;
   };
-  PX.maxBE = (raster) => {
-    if (!raster) return 0;
-    const pflicht = PX.sum(raster.tasks.filter((t) => t.kind === "pflicht").map((t) => t.be));
-    const wahl = PX.sum((raster.wahl || []).map((w) => w.pick * Math.max(...w.groups.map((g) => PX.sum(raster.tasks.filter((t) => t.group === g).map((t) => t.be))))));
-    return pflicht + wahl;
-  };
-  // Ergebnis einer Korrektur: Summe, Vollständigkeit, Notenpunkte
-  PX.result = (c, raster) => {
-    if (!c || !raster) return { sum: 0, max: 0, complete: false, np: null };
-    if (raster.mode === "np") { const v = c.be?.[raster.tasks[0].id]; return { sum: v ?? 0, max: 15, complete: v !== undefined && v !== "" && c.wahl?.length > 0, np: v === undefined || v === "" ? null : Math.max(0, Math.min(15, +v - (+c.abzug || 0))) }; }
-    const tasks = PX.chosenTasks(raster, c);
-    const wahlOk = (raster.wahl || []).every((w) => (c.wahl || []).filter((g) => w.groups.includes(g)).length === w.pick);
-    const filled = tasks.filter((t) => c.be && c.be[t.id] !== undefined && c.be[t.id] !== "");
-    const sum = PX.sum(filled.map((t) => +c.be[t.id])) + (+c.bonus || 0);
-    const max = PX.maxBE(raster);
-    const complete = wahlOk && filled.length === tasks.length;
-    const pct = max ? (sum / max) * 100 : 0;
-    const npRaw = PX.npFromPct(pct);
-    const np = Math.max(0, Math.min(15, npRaw - (+c.abzug || 0)));
-    return { sum, max, complete, np: complete ? np : null, npRaw, pct };
-  };
+  // Zeichen einer Prüfung (optional je Prüfungsteil eingeschränkt)
+  PX.examSigns = (ex, partId) => { const set = ex.partSigns?.[partId]?.length ? ex.partSigns[partId] : ex.signset || []; return S().signs.filter((z) => set.includes(z.id)); };
 
   // ---------- Status einer Kursmappe ----------
   PX.stageState = (km, stage) => {
@@ -105,6 +95,29 @@
     return out;
   };
 
+  // ---------- Testkorrektur (Sandbox je Bewertungsraster) ----------
+  // Erzeugt eine Test-Kursmappe mit drei Beispielarbeiten, um jedes Raster im echten Korrekturmodus auszuprobieren.
+  PX.sandboxFor = function (rasterId, reset) {
+    const r = PX.byId("rasters", rasterId); if (!r) return null;
+    S().sandbox = S().sandbox || { exams: [], kms: [], mappen: [] }; const sb = S().sandbox;
+    const exId = "sbx-ex-" + r.id, kmId = "sbx-km-" + r.id;
+    if (reset) { sb.mappen = sb.mappen.filter((m) => m.km !== kmId); sb.kms = sb.kms.filter((k) => k.id !== kmId); sb.exams = sb.exams.filter((e) => e.id !== exId); }
+    let km = sb.kms.find((k) => k.id === kmId);
+    if (!km) {
+      const real = S().exams.find((e) => e.raster === r.id);
+      const ex = PX.initExam({ id: exId, subject: r.subject, type: "HT", year: r.year || 2027, date: "2027-04-20", raster: r.id, guideline: real?.guideline || "", status: "test", sandbox: true, zkMode: real?.zkMode || "neu", ewh: { file: "Erwartungshorizont_Test.pdf", date: S().now }, partSigns: PX.clone(real?.partSigns || {}), signset: real?.signset ? [...real.signset] : undefined });
+      ex.ekEnd = ex.zkEnd = ex.ebStart = ex.ebEnd = "2099-12-31"; sb.exams.push(ex);
+      km = { id: kmId, exam: exId, school: "afs", course: "TEST-" + (PX.subj(r.subject)?.short || ""), name: "Testkursmappe", teachers: [], status: "freigegeben", scanReleased: true, sandbox: true, stages: { ek: { lkDone: [], sltOk: true }, zk: { lkDone: [], sltOk: true }, eb: { lkDone: [], sltOk: false } } };
+      sb.kms.push(km);
+      [["T01", "Anna", "Beispiel"], ["T02", "Ben", "Muster"], ["T03", "Cem", "Probe"]].forEach(([nr, first, last], i) => {
+        const id = `sbx-${r.id}-${i + 1}`; const n = 3 + i % 2;
+        const pages = [{ id: id + "-p0", kind: "deckblatt", n: 0, rot: 0 }]; for (let j = 1; j <= n; j++) pages.push({ id: id + "-p" + j, kind: "blatt", n: j, rot: 0 }); pages.push({ id: id + "-pk", kind: "konzept", n: n + 1, rot: 0, konzeptBy: "farbe" });
+        sb.mappen.push({ id, km: kmId, student: "sbx-" + nr + r.id, first, last, nr: "TEST-" + nr, nta: "", absent: "", pages, corr: {}, lock: null, ebRequired: i === 2 ? "abweichung" : "", diff: null, final: null, sandbox: true });
+      });
+    }
+    return km;
+  };
+
   // ---------- Prüfung anlegen ----------
   PX.ops = {};
   const O = PX.ops;
@@ -112,9 +125,11 @@
     // d: { subject, terms:[{type,date,time,end,ekEnd,zkEnd,ebStart,ebEnd}], raster, guideline, zusatz }
     const created = [];
     d.terms.forEach((t) => {
-      const ex = { id: PX.uid("ex-"), subject: d.subject, type: t.type, year: +t.date.slice(0, 4), date: t.date, time: t.time || "08:30", end: t.end || "13:00", ekEnd: t.ekEnd, zkEnd: t.zkEnd, ebStart: t.ebStart, ebEnd: t.ebEnd, raster: d.raster, guideline: d.guideline || "", ewh: null, zusatz: !!d.zusatz, status: "angelegt", creator: PX.actorId() || "r.albrecht", signset: PX.signsFor(d.subject).map((z) => z.code) };
+      const cal = PX.calendarFor(PX.schulform(d.subject), t.type, +t.date.slice(0, 4));
+      const own = t.own || !cal;
+      const ex = { id: PX.uid("ex-"), subject: d.subject, type: t.type, year: +t.date.slice(0, 4), date: t.date, time: t.time || "08:30", end: t.end || "13:00", cal: own ? null : cal.id, ekEnd: own ? t.ekEnd : cal.ekEnd, zkEnd: own ? t.zkEnd : cal.zkEnd, ebStart: own ? t.ebStart : cal.ebStart, ebEnd: own ? t.ebEnd : cal.ebEnd, raster: d.raster, guideline: d.guideline || "", ewh: null, zusatz: !!d.zusatz, status: "angelegt", creator: PX.actorId() || "r.albrecht", zkMode: d.zkMode || "neu", signset: d.signset || PX.signsFor(d.subject).map((z) => z.id), partSigns: PX.clone(d.partSigns || {}) };
       S().exams.push(ex); created.push(ex);
-      PX.audit("Prüfung angelegt", PX.examLabel(ex), `Termin ${PX.fmtD(ex.date)}, Korrekturzeiträume EK bis ${PX.fmtD(ex.ekEnd)}, ZK bis ${PX.fmtD(ex.zkEnd)}, EB ${PX.fmtD(ex.ebStart)}–${PX.fmtD(ex.ebEnd)}`);
+      PX.audit("Prüfung angelegt", PX.examLabel(ex), `Termin ${PX.fmtD(ex.date)}, ${ex.cal ? "Korrekturkalender übernommen" : "eigene Korrekturzeiträume"}: EK bis ${PX.fmtD(ex.ekEnd)}, ZK bis ${PX.fmtD(ex.zkEnd)}, EB ${PX.fmtD(ex.ebStart)}–${PX.fmtD(ex.ebEnd)}`);
     });
     PX.notify(S().persons.filter((p) => p.roles.includes("slt")).map((p) => p.id), `Neue Prüfung angelegt: ${PX.examLabel(created[0])}. Sie können mit der Prüfungsvorbereitung (Datenimport) beginnen.`, "#/slt/import");
     return created;
@@ -129,6 +144,15 @@
     const r = PX.clone(PX.byId("rasters", id)); r.id = PX.uid("rs-"); r.name = name; r.year = year || r.year + 1; r.status = "entwurf";
     S().rasters.push(r); PX.audit("Bewertungsraster dupliziert", name, "Vorlage: " + PX.byId("rasters", id).name); return r;
   };
+  O.saveCalendar = function (id, vals) {
+    const c = PX.byId("calendars", id); Object.assign(c, vals);
+    const linked = S().exams.filter((e) => e.cal === id);
+    linked.forEach((e) => PX.CAL_FIELDS.forEach(([f]) => (e[f] = c[f])));
+    PX.audit("Korrekturkalender geändert", `${c.form} · ${PX.TYPE[c.type]} ${c.year}`, `EK bis ${PX.fmtD(c.ekEnd)}, ZK bis ${PX.fmtD(c.zkEnd)}, EB ${PX.fmtD(c.ebStart)}–${PX.fmtD(c.ebEnd)}; ${linked.length} verknüpfte Prüfung(en) aktualisiert`);
+    return linked.length;
+  };
+  O.detachCalendar = function (examId, vals) { const e = PX.exam(examId); e.cal = null; Object.assign(e, vals || {}); PX.audit("Abweichende Korrekturzeiträume festgelegt", PX.examLabel(e), "Verknüpfung zum Korrekturkalender gelöst"); };
+  O.attachCalendar = function (examId) { const e = PX.exam(examId); const c = PX.calendarFor(PX.schulform(e.subject), e.type, e.year); if (!c) return false; e.cal = c.id; PX.CAL_FIELDS.forEach(([f]) => (e[f] = c[f])); PX.audit("Korrekturkalender übernommen", PX.examLabel(e), `${c.form} · ${PX.TYPE[c.type]}`); return true; };
   O.releaseRaster = function (id) { const r = PX.byId("rasters", id); r.status = "freigegeben"; PX.audit("Bewertungsraster freigegeben", r.name); };
 
   // ---------- Datenimport (ASV/CSV) ----------
@@ -267,13 +291,14 @@
       const sheets = 3 + Math.floor(PX.hash(m.id) * 3);
       const pages = [{ id: PX.uid("p"), kind: "deckblatt", n: 0, rot: 0 }];
       for (let i = 1; i <= sheets; i++) pages.push({ id: PX.uid("p"), kind: "blatt", n: i, rot: 0 });
-      pages.push({ id: PX.uid("p"), kind: "konzept", n: sheets + 1, rot: 0 });
+      pages.push({ id: PX.uid("p"), kind: "konzept", n: sheets + 1, rot: 0, konzeptBy: "farbe" });
       const f = { id: PX.uid("s"), school, file: `Scan_${S().now}_${String(n).padStart(4, "0")}.pdf`, target: m.id, km: km.id, pages, dpi: 300, declared: sheets + 1, barcode: true, issues: [] };
       // Demo-Auffälligkeiten an der AFS
       if (m.student === "afs-0415") { f.barcode = false; f.issues.push("barcode"); }
       if (m.student === "afs-0414") { f.pages[3].rot = 180; f.issues.push("rot"); }
       if (m.student === "afs-0422") { f.dpi = 150; f.issues.push("dpi"); }
       if (m.student === "afs-0416") { f.pages.splice(2, 1); f.issues.push("pages"); }
+      if (m.student === "afs-0421") { const k = f.pages[f.pages.length - 1]; k.kind = "blatt"; k.unsure = true; delete k.konzeptBy; f.issues.push("konzept"); }
       files.push(f);
     }));
     return files;
@@ -290,6 +315,7 @@
     if (s.issues.includes("dpi")) out.push({ k: "dpi", block: true, text: `Auflösung ${s.dpi} dpi unter Mindestwert 300 dpi` });
     if (s.issues.includes("pages")) out.push({ k: "pages", block: true, text: `Deckblatt nennt ${s.declared} Blätter, erkannt ${s.pages.filter((p) => p.kind !== "deckblatt").length}` });
     if (s.issues.includes("rot") && s.pages.some((p) => p.rot)) out.push({ k: "rot", block: false, text: "Seite vermutlich gedreht eingescannt" });
+    if (s.issues.includes("konzept") && s.pages.some((p) => p.unsure && p.kind !== "konzept" && p.konzeptBy !== "manuell")) out.push({ k: "konzept", block: false, text: "Farbmarkierung Konzeptpapier auf der letzten Seite unsicher – bitte prüfen" });
     if (s.issues.includes("barcode") && !s.mappe) out.push({ k: "barcode", block: true, text: "Barcode auf dem Deckblatt nicht lesbar" });
     return out;
   };
@@ -324,6 +350,13 @@
     if (s.issues.includes("dpi")) { s.dpi = 300; s.issues = s.issues.filter((i) => i !== "dpi"); S().uploadLog.unshift({ at: PX.stamp(), school: s.school, who: PX.actorId(), text: `${s.file} neu gescannt und ersetzt (300 dpi)` }); PX.audit("Scandatei ersetzt", s.file, "Neuscan, 300 dpi – ersetzte Datei protokolliert, keine Versionierung"); }
     if (s.issues.includes("pages")) { s.pages.splice(2, 0, { id: PX.uid("p"), kind: "blatt", n: 2, rot: 0 }); s.issues = s.issues.filter((i) => i !== "pages"); S().uploadLog.unshift({ at: PX.stamp(), school: s.school, who: PX.actorId(), text: `${s.file}: fehlendes Blatt 2 nachgescannt und ergänzt (Zuordnung über Seiten-Barcode)` }); PX.audit("Seite nachgescannt", s.file, "Blatt 2 ergänzt"); }
   };
+  // Konzeptpapier: per Farbmarkierung des landeseinheitlichen Papiers erkannt, beim Scannen manuell korrigierbar
+  O.toggleKonzept = function (scanId, pageId) {
+    const s = PX.byId("scans", scanId); const p = s.pages.find((x) => x.id === pageId);
+    p.kind = p.kind === "konzept" ? "blatt" : "konzept"; p.konzeptBy = "manuell";
+    let n = 0; s.pages.forEach((x) => { if (x.kind !== "deckblatt") x.n = ++n; });
+    PX.audit(p.kind === "konzept" ? "Seite als Konzeptpapier gekennzeichnet" : "Kennzeichnung Konzeptpapier entfernt", s.file, "manuell beim Scannen");
+  };
   O.deleteScan = function (scanId) { const s = PX.byId("scans", scanId); if (s.mappe) PX.mappe(s.mappe).scan = null; S().scans = S().scans.filter((x) => x.id !== scanId); PX.audit("Scandatei gelöscht", s.file); };
   PX.kmScanState = (km) => {
     const act = PX.activeMappen(km);
@@ -345,16 +378,21 @@
   };
 
   // ---------- Korrektur ----------
-  PX.corr = (m, stage) => { if (!m.corr[stage]) m.corr[stage] = { state: "offen", be: {}, wahl: [], marks: [], redactions: [], notes: [], gutachten: "", abzug: 0, bonus: 0, np: null, by: "", page: 0 }; return m.corr[stage]; };
+  PX.corr = (m, stage) => { if (!m.corr[stage]) m.corr[stage] = { state: "offen", be: {}, wahl: {}, marks: [], redactions: [], notes: [], gutachten: {}, bausteine: [], hint: "", formPdf: null, abzug: 0, bonus: 0, np: null, by: "", page: 0 };
+    const c = m.corr[stage]; if (Array.isArray(c.wahl)) c.wahl = {}; if (typeof c.gutachten === "string") c.gutachten = c.gutachten ? { "Gutachten": c.gutachten } : {}; return m.corr[stage]; };
+  PX.gutachtenText = (c) => Object.entries(c?.gutachten || {}).filter(([, v]) => v && v.trim()).map(([k, v]) => `${k}: ${v}`).join("\n");
+  // Fehlerzahl aus den gesetzten gewichteten Zeichen (z. B. Alte Sprachen)
+  PX.markErrors = (c) => PX.sum((c?.marks || []).map((k) => { const z = S().signs.find((x) => x.id === k.sign); if (!z) return 0; return z.count ? +k.count || 0 : +z.weight || 0; }));
   O.lock = function (mid, stage, pid) { const m = PX.mappe(mid); if (m.lock && m.lock.pid !== pid) return false; m.lock = { pid, stage, at: PX.stamp() }; const c = PX.corr(m, stage); if (c.state === "offen") { c.state = "in_bearbeitung"; c.by = pid; } return true; };
   O.unlock = function (mid) { const m = PX.mappe(mid); m.lock = null; };
   O.finishMappe = function (mid, stage) {
     const m = PX.mappe(mid); const km = PX.km(m.km); const ex = PX.exam(km.exam); const r = PX.raster(ex); const c = PX.corr(m, stage);
-    const res = PX.result(c, r);
-    if (!res.complete) return { ok: false, msg: "Bitte alle Bewertungseinheiten der bearbeiteten Aufgaben eintragen und die Wahlaufgabe festlegen." };
-    if (r.gutachten && !c.gutachten.trim()) return { ok: false, msg: "Für dieses Prüfungsfach ist ein textliches Gutachten erforderlich." };
+    const res = PX.evaluate(r, c, km, m);
+    if (!res.complete) return { ok: false, msg: "Bitte alle Aufgaben bewerten (oder als „nicht bearbeitet“ markieren) und die Wahl festlegen: " + res.missing.join(" · ") };
+    if (r.gutachten?.on && r.gutachten.required && !PX.gutachtenText(c).trim()) return { ok: false, msg: "Für dieses Prüfungsfach ist ein textliches Gutachten erforderlich." };
+    if (r.formPdf && !c.formPdf) return { ok: false, msg: "Für dieses Prüfungsfach ist das ausgefüllte Formblatt (PDF) hochzuladen." };
     c.np = res.np; c.state = "fertig"; c.at = S().now; c.by = c.by || PX.actorId(); m.lock = null;
-    PX.audit(`${PX.STAGE[stage]} einer Mappe abgeschlossen`, stage === "ek" ? `${m.first} ${m.last}` : PX.pseudo(m), `${res.sum}/${res.max} BE → ${res.np} NP (${PX.STAGE[stage]}bericht erzeugt)`);
+    PX.audit(`${PX.STAGE[stage]} einer Mappe abgeschlossen`, stage === "ek" ? `${m.first} ${m.last}` : PX.pseudo(m), `${r.combine === "sum" ? `${res.sum}/${res.max} BE → ` : ""}${PX.fmtNP(res.np)} NP (${PX.STAGE[stage]}bericht erzeugt)`);
     return { ok: true, np: res.np };
   };
   O.reopenMappe = function (mid, stage) { const c = PX.corr(PX.mappe(mid), stage); c.state = "in_bearbeitung"; c.np = null; PX.audit("Korrektur einer Mappe wieder geöffnet", PX.mappe(mid).nr, PX.STAGE[stage]); };
@@ -364,12 +402,33 @@
     if (c.state === "fertig") return;
     const ability = 0.38 + PX.hash(m.student) * 0.55;
     const off = stage === "ek" ? 0 : stage === "zk" ? (m.student === "afs-0413" || m.student === "kts-2204" ? -0.27 : -0.03 + PX.hash(m.student + "z") * 0.05) : -0.12;
-    c.wahl = m.corr.ek?.wahl?.length && stage !== "ek" ? [...m.corr.ek.wahl] : (r.wahl || []).map((w) => w.groups[PX.hash(m.student + "w") < 0.5 ? 0 : 1]);
-    PX.chosenTasks(r, c).forEach((t, i) => { const v = Math.max(0, Math.min(1, ability + off + (PX.hash(m.student + t.id + stage) - 0.5) * 0.2)); c.be[t.id] = Math.round(v * t.be); });
-    if (!c.marks.length) { c.marks = [{ id: PX.uid("k"), page: 1, x: 82, y: 30, code: "✓" }, { id: PX.uid("k"), page: 1, x: 84, y: 56, code: "f" }, { id: PX.uid("k"), page: 2, x: 80, y: 40, code: "A" }]; }
-    if (r.gutachten) c.gutachten = "Die Arbeit zeigt insgesamt solide Kenntnisse. (Demo-Gutachten)";
+    c.wahl = PX.paperChoice(m, r);
+    if (stage === "ek" && (r.groups || []).some((g) => g.chooser === "lehrer")) { km.lehrerwahl = Object.assign(PX.paperLehrerwahl(km, r), km.lehrerwahl || {}); }
+    PX.activeLeaves(r, c, km).forEach((l) => {
+      const p = PX.partOf(r, l); if (p.scoring === "extern") return;
+      const v = Math.max(0, Math.min(1, ability + off + (PX.hash(m.student + l.id + stage) - 0.5) * 0.2));
+      c.be[l.id] = p.scoring === "np" ? Math.round(v * 15) : p.scoring === "fehler" ? Math.round((1 - v) * 14 * 4) / 4 : Math.round(v * l.be);
+    });
+    if (!c.marks.length) { const pg = PX.pagesOf(m).filter((p) => p.kind === "blatt"); const z = PX.examSigns(PX.exam(km.exam)); const pick = (i) => z[Math.floor(PX.hash(m.id + stage + i) * z.length)];
+      const X = stage === "ek" ? 84 : stage === "zk" ? 8 : 14, dy = stage === "ek" ? 0 : stage === "zk" ? 2 : 4;
+      if (pg.length && z.length) c.marks = [{ id: PX.uid("k"), kind: "sign", page: pg[0].id, x: X, y: 30 + dy, sign: pick(1).id, code: pick(1).code }, { id: PX.uid("k"), kind: "line", page: pg[0].id, x1: 18, x2: 62, y: 44 + dy, sign: pick(2).id, code: pick(2).code }, { id: PX.uid("k"), kind: "sign", page: (pg[1] || pg[0]).id, x: X, y: 40 + dy, sign: pick(3).id, code: pick(3).code }]; }
+    if (r.gutachten?.on) { c.gutachten = {}; r.gutachten.sections.forEach((sec, i) => { const b = r.gutachten.bausteine?.[Math.floor(PX.hash(m.id + stage + i) * (r.gutachten.bausteine.length || 1))]; c.gutachten[sec] = b ? b.text : "Die Arbeit zeigt insgesamt solide Kenntnisse. (Demo-Gutachten)"; }); }
+    if (r.formPdf) c.formPdf = { file: `Formblatt_${m.nr}.pdf`, at: S().now };
     c.by = pid; c.state = "in_bearbeitung";
     O.finishMappe(mid, stage);
+  };
+  // Lehrerwahl (z. B. Mathematik Teil B): je Kursmappe durch die Erstkorrektur festgelegt
+  O.setLehrerwahl = function (kmId, gid, opts) {
+    const km = PX.km(kmId); const r = PX.raster(km.exam); const g = r.groups.find((x) => x.id === gid);
+    km.lehrerwahl = km.lehrerwahl || {}; km.lehrerwahl[gid] = opts;
+    PX.audit("Lehrerwahl festgelegt", PX.kmLabel(km), `${g.label}: ${opts.map((id) => r.nodes.find((n) => n.id === id)?.no).join(", ")} – gilt für alle Mappen der Kursmappe`);
+  };
+  // Nicht korrekturrelevante Teile (z. B. Kommunikationsprüfung) – auch nach Abschluss möglich
+  O.setExtern = function (mid, partId, v) {
+    const m = PX.mappe(mid); const km = PX.km(m.km); const r = PX.raster(km.exam); const p = r.parts.find((x) => x.id === partId);
+    m.extern = m.extern || {}; m.extern[partId] = v === "" || v == null ? "" : Math.max(0, Math.min(15, Math.round(+v)));
+    if (m.final) { const f = PX.finalNP(m, r); m.final = f ? { np: f.np, src: f.src, pending: f.pending } : m.final; }
+    PX.audit(`${p.name}: Notenpunkte eingetragen`, `${m.first} ${m.last}`, `${m.extern[partId]} NP`);
   };
   O.confirmKM = function (kmId, stage, pid) {
     const km = PX.km(kmId); const st = km.stages[stage];
@@ -392,16 +451,19 @@
     PX.audit(`${PX.STAGE[stage]} zurückverfügt`, PX.kmLabel(km), PX.name(pid));
   };
   O.computeEB = function (kmId) {
-    const km = PX.km(kmId);
-    PX.activeMappen(km).forEach((m) => { const d = Math.abs((m.corr.ek?.np ?? 0) - (m.corr.zk?.np ?? 0)); m.diff = d; m.ebRequired = d > 3 ? "abweichung" : ""; });
-    PX.audit("Abweichungen EK/ZK berechnet", PX.kmLabel(km), `${PX.activeMappen(km).filter((m) => m.ebRequired).length} Mappe(n) mit Abweichung > 3 NP`);
+    const km = PX.km(kmId); const list = PX.activeMappen(km);
+    list.forEach((m) => { const d = Math.abs((m.corr.ek?.np ?? 0) - (m.corr.zk?.np ?? 0)); m.diff = Math.round(d * 10) / 10; m.ebRequired = d > 3 ? "abweichung" : ""; });
+    let stich = [];
+    if (PX.examForm(PX.exam(km.exam)) === "AG") {
+      // Allgemeinbildendes Gymnasium: zusätzlich Stichprobe von 2 Prüfungen je Kurs (zufällig)
+      stich = list.filter((m) => !m.ebRequired).sort((a, b) => PX.hash(km.id + a.id + "sp") - PX.hash(km.id + b.id + "sp")).slice(0, 2);
+      stich.forEach((m) => (m.ebRequired = "stichprobe"));
+    }
+    PX.audit("Abweichungen EK/ZK berechnet", PX.kmLabel(km), `${list.filter((m) => m.ebRequired === "abweichung").length} Mappe(n) mit Abweichung > 3 NP${stich.length ? `, Stichprobe: ${stich.length} Mappe(n) zufällig gezogen` : ""}`);
   };
   O.finalize = function (kmId) {
-    const km = PX.km(kmId);
-    PX.activeMappen(km).forEach((m) => {
-      if (m.corr.eb?.state === "fertig") m.final = { np: m.corr.eb.np, src: "Endbeurteilung" };
-      else m.final = { np: Math.ceil(((m.corr.ek?.np ?? 0) + (m.corr.zk?.np ?? 0)) / 2), src: "Ø EK/ZK (aufgerundet)" };
-    });
+    const km = PX.km(kmId); const r = PX.raster(km.exam);
+    PX.activeMappen(km).forEach((m) => { const f = PX.finalNP(m, r); m.final = f ? { np: f.np, src: f.src, pending: f.pending, base: f.base } : null; });
     km.finalAt = S().now;
     const y = PX.exam(km.exam).year;
     S().archive.unshift({ id: "ar-" + km.id, km: km.id, year: y, label: `Abitur ${y} · ${PX.examShort(km.exam)} · ${PX.kmLabel(km)}`, school: km.school, count: PX.activeMappen(km).length, at: S().now, deleteAt: `${y + 5}-07-31` });

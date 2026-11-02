@@ -3,18 +3,19 @@
   "use strict";
   const PX = window.PX; const { esc } = PX;
 
-  const TEXT = {
-    t11: ["Im Marktgleichgewicht stimmen angebotene und nachgefragte Menge überein.", "Gleichgewichtspreis: 4,00 €, Gleichgewichtsmenge 1.200 Stück.", "Liegt der Preis darüber, entsteht ein Angebotsüberhang;", "die Anbieter senken den Preis, bis der Markt geräumt ist.", "Die Konsumentenrente ist die Fläche oberhalb des Preises."],
-    t12: ["Ein Höchstpreis unter dem Gleichgewichtspreis führt", "zu einem Nachfrageüberhang (Knappheit).", "Folgen: Schwarzmärkte, Rationierung, Warteschlangen.", "Ziel ist Schutz der Verbraucher, aber das Angebot sinkt.", "Beurteilung: kurzfristig sozial, langfristig ineffizient."],
-    t13: ["Deckungsbeitrag je Stück = 42 € − 24 € = 18 €", "Gewinnschwelle = Fixkosten : DB = 120.000 € : 18 €", "= 6.667 Stück (aufgerundet)", "Bei 8.000 Stück: Gewinn = 8.000 · 18 € − 120.000 €", "= 24.000 €  → Zusatzauftrag annehmen, da DB > 0"],
-    t2a1: ["Eigenfinanzierung: keine Zinsen, aber Mitspracherechte.", "Darlehen: feste Laufzeit, Zins 4,2 % p. a., Sicherheiten nötig.", "Leasing schont die Liquidität, ist aber insgesamt teurer.", "Vergleich der Gesamtkosten über 5 Jahre (siehe Tabelle)."],
-    t2a2: ["Ich empfehle das Annuitätendarlehen, weil die Belastung", "gleichbleibt und die Planung erleichtert wird.", "Die Bonität des Unternehmens ist gut (EK-Quote 38 %)."],
-    t2b1: ["Produktpolitik: nachhaltige Verpackung, neue Variante.", "Preispolitik: Penetrationsstrategie im ersten Jahr.", "Kommunikation: Social-Media-Kampagne, Influencer.", "Distribution: Online-Shop zusätzlich zum Einzelhandel."],
-    t2b2: ["Marktanteil = 12 Mio. € : 80 Mio. € = 15 %", "Der Umsatz stieg um 8 %, der Markt nur um 3 %.", "Relativer Marktanteil > 1 → Marktführer im Segment."],
-    t31: ["Frühindikatoren: ifo-Geschäftsklima, Auftragseingänge.", "Das BIP wuchs nur um 0,3 %, die Arbeitslosigkeit sinkt kaum.", "Die Wirtschaft befindet sich im Abschwung (Rezession?)."],
-    t32: ["Die EZB hat den Leitzins auf 3,5 % angehoben,", "um die Inflation von 6 % auf das Ziel von 2 % zu senken.", "Höhere Zinsen verteuern Kredite → Investitionen sinken.", "Gefahr: Die Konjunktur wird zusätzlich gebremst.", "Fazit: Preisniveaustabilität hat Vorrang (Art. 127 AEUV)."],
+  const LINES = ["Im Marktgleichgewicht stimmen angebotene und nachgefragte Menge überein.", "Gleichgewichtspreis: 4,00 €, Gleichgewichtsmenge 1.200 Stück.", "Liegt der Preis darüber, entsteht ein Angebotsüberhang;", "die Anbieter senken den Preis, bis der Markt geräumt ist.",
+    "Ein Höchstpreis unter dem Gleichgewichtspreis führt zu Knappheit.", "Folgen: Schwarzmärkte, Rationierung, Warteschlangen.", "Deckungsbeitrag je Stück = 42 € − 24 € = 18 €", "Gewinnschwelle = 120.000 € : 18 € = 6.667 Stück",
+    "Eigenfinanzierung: keine Zinsen, aber Mitspracherechte.", "Darlehen: feste Laufzeit, Zins 4,2 % p. a., Sicherheiten nötig.", "Leasing schont die Liquidität, ist aber insgesamt teurer.", "Ich empfehle das Annuitätendarlehen, weil die Belastung gleich bleibt.",
+    "Produktpolitik: nachhaltige Verpackung, neue Variante.", "Preispolitik: Penetrationsstrategie im ersten Jahr.", "Marktanteil = 12 Mio. € : 80 Mio. € = 15 %", "Frühindikatoren: ifo-Geschäftsklima, Auftragseingänge.",
+    "Das BIP wuchs nur um 0,3 %, die Arbeitslosigkeit sinkt kaum.", "Die EZB hat den Leitzins auf 3,5 % angehoben,", "um die Inflation auf das Ziel von 2 % zu senken.", "Höhere Zinsen verteuern Kredite → Investitionen sinken."];
+
+  // Schülerwahl, wie sie sich aus der Arbeit ergibt (deterministisch je Prüfling – Grundlage für Seiten und Demo-Korrektur)
+  PX.paperChoice = function (m, r) {
+    const w = {};
+    (r.groups || []).filter((g) => g.chooser !== "lehrer").forEach((g) => { const opts = [...g.options].sort((a, b) => PX.hash(m.student + g.id + a) - PX.hash(m.student + g.id + b)); w[g.id] = opts.slice(0, g.pick).sort((a, b) => g.options.indexOf(a) - g.options.indexOf(b)); });
+    return w;
   };
-  const ORDER = ["t11", "t12", "t13", "t2a1", "t2a2", "t31", "t32"];
+  PX.paperLehrerwahl = function (km, r) { const w = {}; (r.groups || []).filter((g) => g.chooser === "lehrer").forEach((g) => { w[g.id] = g.options.slice(0, g.pick).map((_, i) => g.options[(Math.floor(PX.hash(km.id + g.id) * g.options.length) + i) % g.options.length]); }); return w; };
 
   // Barcode (dekorativ) aus einer Zeichenkette
   PX.barcode = (s, w = 220, h = 46) => {
@@ -41,23 +42,27 @@
     } else {
       const head = opts.anon ? `<div class="sh-head anon">Kopfzeile ausgeblendet · ${esc(PX.pseudo(m))} · Blatt ${page.n}</div>` : `<div class="sh-head"><span>Abitur ${ex.year} · ${esc(s.short)}</span><span>Name: <b class="hwv">${esc(m.first)} ${esc(m.last)}</b></span><span>Nr. ${esc(m.nr)}</span><span>Blatt ${page.n}</span></div>`;
       if (page.kind === "konzept") {
-        inner = `${head}<div class="sh-body konzept"><div class="stamp">Konzeptblatt</div><p class="hw strike">Gleichgewicht → p* ≈ 4 €?</p><p class="hw">Notizen zu 3.2: Zins ↑ → Kredit teurer → I ↓</p>${sketch()}</div>`;
+        inner = `${head}<div class="sh-body konzept"><div class="stamp">Konzeptpapier · ${page.konzeptBy === "manuell" ? "manuell gekennzeichnet" : "Farbmarkierung erkannt"}</div><p class="hw strike">Gleichgewicht → p* ≈ 4 €?</p><p class="hw">Notizen zu 3.2: Zins ↑ → Kredit teurer → I ↓</p>${sketch()}</div>`;
       } else {
-        const wahl = PX.hash(m.student + "w") < 0.5 ? "2a" : "2b";
-        const order = ORDER.map((t) => (t.startsWith("t2a") && wahl === "2b" ? t.replace("t2a", "t2b") : t));
-        const per = Math.max(1, Math.ceil(order.length / Math.max(1, 3 + Math.floor(PX.hash(m.id) * 3))));
-        const tasks = order.slice((page.n - 1) * per, page.n * per);
         const r = PX.raster(ex);
-        const lines = tasks.flatMap((t) => { const task = r?.tasks.find((x) => x.id === t); return [`<p class="hw task">${esc(task ? task.no : t)}</p>`, ...(TEXT[t] || []).slice(0, 2 + Math.floor(PX.hash(m.id + t) * 4)).map((l) => `<p class="hw">${esc(l)}</p>`), t === "t11" ? sketch() : ""]; });
+        const leaves = r ? PX.activeLeaves(r, { wahl: PX.paperChoice(m, r) }, { lehrerwahl: km.lehrerwahl || PX.paperLehrerwahl(km, r) }).filter((l) => PX.partOf(r, l)?.scoring !== "extern") : [];
+        const nSheets = Math.max(1, (PX.pagesOf(m).filter((p) => p.kind === "blatt").length) || 3);
+        const per = Math.max(1, Math.ceil(leaves.length / nSheets));
+        const tasks = leaves.slice((page.n - 1) * per, page.n * per);
+        const lines = tasks.flatMap((t, ti) => { const k = 1 + Math.floor(PX.hash(m.id + t.id) * 3); const st = Math.floor(PX.hash(t.id) * LINES.length); return [`<p class="hw task">${esc(t.no)}</p>`, ...Array.from({ length: k }, (_, i) => `<p class="hw">${esc(LINES[(st + i) % LINES.length])}</p>`), page.n === 1 && ti === 0 ? sketch() : ""]; });
         const nameLine = page.n === 1 && m.student === "afs-0412" ? `<p class="hw pers">(${esc(m.first)} ${esc(m.last)}, ${esc(km.name)})</p>` : "";
         inner = `${head}<div class="sh-body">${nameLine}${lines.join("") || `<p class="hw">…</p>`}</div>`;
       }
     }
-    const marks = (opts.marks || []).filter((k) => k.page === page.id).map((k) => `<span class="mk ${k.stage} ${opts.sel === k.id ? "sel" : ""}" data-mk="${k.id}" style="left:${k.x}%;top:${k.y}%" title="${esc(k.text || k.meaning || "")}">${esc(k.code)}${k.text ? `<em>${esc(k.text)}</em>` : ""}</span>`).join("");
+    const ownMarks = (opts.marks || []).filter((k) => k.page === page.id);
+    const lab = (k) => `${esc(k.code || "")}${k.count ? `<sub>${PX.fmtNP(k.count)}</sub>` : ""}`;
+    const svg = ownMarks.filter((k) => k.kind === "line" || k.kind === "pen").map((k) => k.kind === "line" ? `<line class="ul ${k.stage} ${k.dev ? "dev" : ""}" x1="${k.x1}" y1="${k.y}" x2="${k.x2}" y2="${k.y}"/>` : `<polyline class="pen ${k.stage}" points="${k.pts.map((q) => q.join(",")).join(" ")}"/>`).join("");
+    const marks = ownMarks.map((k) => { const pos = k.kind === "line" ? { x: k.x2, y: k.y - 2.2 } : k.kind === "pen" ? { x: k.pts[k.pts.length - 1][0], y: k.pts[k.pts.length - 1][1] - 2 } : k; if ((k.kind === "line" || k.kind === "pen") && !k.code) return `<span class="mk hit ${k.stage} ${opts.sel === k.id ? "sel" : ""}" data-mk="${k.id}" style="left:${pos.x}%;top:${pos.y}%" title="Markierung ohne Zeichen">·</span>`;
+      return `<span class="mk ${k.stage} ${k.dev ? "dev" : ""} ${k.ghost ? "ghost" : ""} ${opts.sel === k.id ? "sel" : ""}" data-mk="${k.id}" style="left:${pos.x}%;top:${pos.y}%" title="${esc(k.text || k.meaning || "")}${k.dev ? " (Abweichung ZK)" : ""}">${lab(k)}${k.text ? `<em>${esc(k.text)}</em>` : ""}</span>`; }).join("");
     const red = (opts.red || []).filter((x) => x.page === page.id).map((x) => `<span class="redact" data-rd="${x.id}" style="left:${x.x}%;top:${x.y}%;width:${x.w}%;height:${x.h}%"></span>`).join("");
     const notes = (opts.notes || []).filter((x) => x.page === page.id).map((x) => `<span class="pnote" data-nt="${x.id}" style="left:${x.x}%;top:${x.y}%" title="Notiz (nur für Sie sichtbar): ${esc(x.text)}">✎</span>`).join("");
     const q = opts.dpi && opts.dpi < 300 ? "lowdpi" : "";
-    return `<div class="sheet ${opts.small ? "small" : ""} ${q}" data-pid="${page.id}"><div class="sheet-rot r${rot}"><div class="sheet-in">${inner}</div></div><div class="overlay">${red}${marks}${notes}</div></div>`;
+    return `<div class="sheet ${opts.small ? "small" : ""} ${q} ${page.kind === "konzept" ? "konzeptpapier" : ""}" data-pid="${page.id}"><div class="sheet-rot r${rot}"><div class="sheet-in">${inner}</div></div><div class="overlay">${svg ? `<svg class="mksvg" viewBox="0 0 100 100" preserveAspectRatio="none">${svg}</svg>` : ""}${red}${marks}${notes}</div></div>`;
   };
-  PX.pagesOf = (m) => { const s = m.scan ? PX.byId("scans", m.scan) : null; return s ? s.pages : []; };
+  PX.pagesOf = (m) => { if (m.pages) return m.pages; const s = m.scan ? PX.byId("scans", m.scan) : null; return s ? s.pages : []; };
 })();
