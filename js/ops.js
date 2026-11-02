@@ -31,7 +31,12 @@
     const q = Math.sin(t(B[0] - A[0]) / 2) ** 2 + Math.cos(t(A[0])) * Math.cos(t(B[0])) * Math.sin(t(B[1] - A[1]) / 2) ** 2;
     return Math.round(2 * R * Math.asin(Math.sqrt(q)));
   };
-  PX.examPassed = (ex) => !!ex && S().now >= ex.date; // Prüfung durchgeführt → Bewertungsgrundlagen für Schulen sichtbar
+  PX.examPassed = (ex) => !!ex && S().now >= ex.date;
+  // Erwartungshorizont: bei Anlage verschlüsselt hinterlegt, automatisch mit Prüfungsbeginn entschlüsselt
+  PX.ewhOpen = (ex) => !!ex?.ewh && (ex.sandbox || S().now >= ex.date);
+  PX.ewhState = (ex) => (!ex?.ewh ? "fehlt" : PX.ewhOpen(ex) ? `entschlüsselt seit ${PX.fmtD(ex.date)}, ${ex.time} Uhr` : `verschlüsselt – Entschlüsselung automatisch am ${PX.fmtD(ex.date)} um ${ex.time} Uhr`);
+  PX.endTime = (time, dur) => { const [h, m] = String(time || "08:30").split(":").map(Number); const t = h * 60 + m + (+dur || 0); return `${String(Math.floor(t / 60) % 24).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; };
+  PX.durOf = (time, end) => { const f = (x) => { const [h, m] = String(x).split(":").map(Number); return h * 60 + m; }; return end ? f(end) - f(time) : 0; }; // Prüfung durchgeführt → Bewertungsgrundlagen für Schulen sichtbar
   PX.pseudo = (m) => { const list = PX.activeMappen(PX.km(m.km)); const i = list.findIndex((x) => x.id === m.id); return "Mappe " + String(i + 1).padStart(2, "0"); };
   PX.hash = (s) => { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return (h >>> 0) / 4294967295; };
 
@@ -46,6 +51,7 @@
     const cal = st.calendars.find((c) => c.form === form && c.type === e.type && c.year === e.year);
     if (cal && !e.ekEnd) { e.cal = cal.id; PX.CAL_FIELDS.forEach(([f]) => (e[f] = cal[f])); }
     if (!e.partSigns) e.partSigns = {};
+    if (!e.duration && e.time && e.end) e.duration = PX.durOf(e.time, e.end);
     if (!e.signset) e.signset = st.signs.filter((z) => z.subjects.includes(e.subject)).map((z) => z.id);
     return e;
   };
@@ -126,16 +132,19 @@
     d.terms.forEach((t) => {
       const cal = PX.calendarFor(PX.schulform(d.subject), t.type, +t.date.slice(0, 4));
       const own = t.own || !cal;
-      const ex = { id: PX.uid("ex-"), subject: d.subject, type: t.type, year: +t.date.slice(0, 4), date: t.date, time: t.time || "08:30", end: t.end || "13:00", cal: own ? null : cal.id, ekEnd: own ? t.ekEnd : cal.ekEnd, zkEnd: own ? t.zkEnd : cal.zkEnd, ebStart: own ? t.ebStart : cal.ebStart, ebEnd: own ? t.ebEnd : cal.ebEnd, raster: d.raster, guideline: d.guideline || "", ewh: null, zusatz: !!d.zusatz, status: "angelegt", creator: PX.actorId() || "r.albrecht", signset: d.signset || PX.signsFor(d.subject).map((z) => z.id), partSigns: PX.clone(d.partSigns || {}) };
+      const ex = { id: PX.uid("ex-"), subject: d.subject, type: t.type, year: +t.date.slice(0, 4), date: t.date, time: t.time || "08:30", duration: +t.dur || 270, end: PX.endTime(t.time || "08:30", +t.dur || 270), cal: own ? null : cal.id, ekEnd: own ? t.ekEnd : cal.ekEnd, zkEnd: own ? t.zkEnd : cal.zkEnd, ebStart: own ? t.ebStart : cal.ebStart, ebEnd: own ? t.ebEnd : cal.ebEnd, raster: d.raster, guideline: d.guideline || "", ewh: null, zusatz: !!d.zusatz, status: "angelegt", creator: PX.actorId() || "r.albrecht", signset: d.signset || PX.signsFor(d.subject).map((z) => z.id), partSigns: PX.clone(d.partSigns || {}) };
       S().exams.push(ex); created.push(ex);
+      if (t.ewh) { ex.ewh = { file: t.ewh, date: S().now, encrypted: true, key: "K-" + PX.uid("").toUpperCase() }; }
       PX.audit("Prüfung angelegt", PX.examLabel(ex), `Termin ${PX.fmtD(ex.date)}, ${ex.cal ? "Korrekturkalender übernommen" : "eigene Korrekturzeiträume"}: EK bis ${PX.fmtD(ex.ekEnd)}, ZK bis ${PX.fmtD(ex.zkEnd)}, EB ${PX.fmtD(ex.ebStart)}–${PX.fmtD(ex.ebEnd)}`);
     });
     PX.notify(S().persons.filter((p) => p.roles.includes("slt")).map((p) => p.id), `Neue Prüfung angelegt: ${PX.examLabel(created[0])}. Sie können mit der Prüfungsvorbereitung (Datenimport) beginnen.`, "#/slt/import");
     return created;
   };
+  O.removeEWH = function (examId) { const ex = PX.exam(examId); PX.audit("Erwartungshorizont gelöscht", PX.examLabel(ex), ex.ewh?.file); ex.ewh = null; };
   O.uploadEWH = function (examId, file) {
-    const ex = PX.exam(examId); ex.ewh = { file: file || `Erwartungshorizont_${PX.subj(ex.subject).short}_${ex.type}_${ex.year}.pdf`, date: S().now };
-    PX.audit("Erwartungshorizont hochgeladen", PX.examLabel(ex), ex.ewh.file);
+    const ex = PX.exam(examId); const replaced = !!ex.ewh;
+    ex.ewh = { file: file || `Erwartungshorizont_${PX.subj(ex.subject).short}_${ex.type}_${ex.year}.pdf`, date: S().now, encrypted: true, key: "K-" + PX.uid("").toUpperCase() };
+    PX.audit(replaced ? "Erwartungshorizont ersetzt (verschlüsselt)" : "Erwartungshorizont verschlüsselt hinterlegt", PX.examLabel(ex), `${ex.ewh.file} · automatische Entschlüsselung ${PX.fmtD(ex.date)}, ${ex.time} Uhr`);
     if (PX.examPassed(ex)) PX.notify(correctorsOfExam(examId), `Der Erwartungshorizont für ${PX.examLabel(ex)} wurde geändert.`);
   };
   function correctorsOfExam(examId) { const ids = new Set(); S().kms.filter((k) => k.exam === examId).forEach((k) => { const g = PX.groupOf(k); if (g) { g.ek.teachers.forEach((t) => ids.add(t)); g.zk.teacher && ids.add(g.zk.teacher); g.eb.teacher && ids.add(g.eb.teacher); } }); return [...ids]; }
@@ -196,53 +205,65 @@
   O.poolRelease = function (rp) { S().rp[rp].pool.released = true; PX.audit("RP-weiten Pool freigegeben", PX.byId("orgs", rp).name, `${S().rp[rp].pool.entries.length} Einträge`); };
 
   // ---------- Korrekturgruppen (Algorithmus nach den Kriterien für ZK und EB) ----------
+  // Pseudonym einer Kursmappe für Zweitkorrektur und Endbeurteilung (keine Herkunftsschule erkennbar)
+  PX.kmPseudo = (km) => { if (typeof km === "string") km = PX.km(km); return km ? "Kurs " + Math.floor(PX.hash(km.id + "pseudo") * 46655 + 1296).toString(36).toUpperCase() : "–"; };
+  PX.kmFor = (km, stage) => (stage === "ek" ? PX.kmLabel(km) : PX.kmPseudo(km));
+  // Fachlehrkräfte einer Schule für ZK/EB (EB: mit gemeldeter Kapazität)
+  PX.subjTeachersAt = (school, subject, stage) => S().persons.filter((p) => p.org === school && (p.subjects || []).includes(subject) && (stage === "eb" ? p.ebCap : p.roles.includes("lk")));
+  PX.teacherLoad = (pid, examId) => PX.sum(S().groups.filter((g) => !examId || g.exam === examId).flatMap((g) => { const n = PX.activeMappen(PX.km(g.km)).length; return [g.ek.teachers.includes(pid) ? n / g.ek.teachers.length : 0, g.zk.teacher === pid ? n : 0, g.eb.teacher === pid ? Math.ceil(n * 0.25) : 0]; }));
+  PX.pickTeacher = (gid, stage) => { const g = PX.byId("groups", gid); const ex = PX.exam(g.exam); const c = PX.subjTeachersAt(g[stage].school, ex.subject, stage); if (g[stage].suggest && c.every((p) => p.id !== g[stage].suggest)) c.push(PX.byId("persons", g[stage].suggest)); return c.sort((a, b) => (a.id === g[stage].suggest ? -1 : 0) - (b.id === g[stage].suggest ? -1 : 0) || PX.teacherLoad(a.id, g.exam) - PX.teacherLoad(b.id, g.exam) || a.id.localeCompare(b.id))[0]?.id || ""; };
+
+  // ---------- Korrekturgruppen (RP): Kurse werden SCHULEN zugeordnet, die Schulleitungen ordnen die Lehrkräfte zu ----------
+  // Grundlage: Anzahl Kurse je Schule und Teilnehmende je Kurs. Ein Kurs wird nie geteilt (immer ein Korrektor je Stufe);
+  // eine ZK-/EB-Schule kann Kurse mehrerer Schulen erhalten, die Kurse einer Schule können auf mehrere Schulen verteilt werden.
   O.buildGroups = function (rp, examId) {
     const ex = PX.exam(examId);
     const schools = PX.schools().filter((o) => o.rp === rp);
     const kms = S().kms.filter((k) => k.exam === examId && schools.some((s) => s.id === k.school) && k.status === "freigegeben");
     const pool = S().rp[rp].pool.released ? S().rp[rp].pool.entries.filter((e) => !e.locked && e.subject === ex.subject) : [];
-    // Belastung je Lehrkraft = Erstkorrekturen + Zweitkorrekturen (Arbeiten)
-    const load = {}, zkCount = {}, ebLoad = {};
-    kms.forEach((k) => k.teachers.forEach((t) => (load[t] = (load[t] || 0) + PX.activeMappen(k).length / k.teachers.length)));
-    const courseTeachers = (school) => [...new Set(S().kms.filter((k) => k.exam === examId && k.school === school).flatMap((k) => k.teachers))];
+    const n = (k) => PX.activeMappen(k).length;
+    const own = {}; kms.forEach((k) => (own[k.school] = (own[k.school] || 0) + n(k)));            // EK-Belastung je Schule (Teilnehmende)
+    const hasT = (s, st) => PX.subjTeachersAt(s, ex.subject, st).length > 0 || S().kms.some((k) => k.school === s && k.exam === examId);
+    const zkLoad = {}, ebLoad = {}, ebCap = {};
+    schools.forEach((s) => (ebCap[s.id] = PX.sum(PX.subjTeachersAt(s.id, ex.subject, "eb").map((p) => p.ebCap)) || 0));
     const prev = S().groups.filter((g) => kms.some((k) => k.id === g.km));
     S().groups = S().groups.filter((g) => !prev.includes(g));
-    const order = [...kms].sort((a, b) => PX.activeMappen(b).length - PX.activeMappen(a).length || a.id.localeCompare(b.id));
+    // große Kurse zuerst – so lassen sich die Belastungen am besten ausgleichen
+    const order = [...kms].sort((a, b) => n(b) - n(a) || a.id.localeCompare(b.id));
     order.forEach((km) => {
-      const n = PX.activeMappen(km).length;
-      const cand = [];
-      schools.filter((s) => s.id !== km.school && !s.exclude && PX.dist(s.id, km.school) >= 50).forEach((s) => courseTeachers(s.id).forEach((t) => cand.push({ t, school: s.id, d: PX.dist(s.id, km.school) })));
-      let why = "";
-      if (!cand.length) { pool.forEach((e) => { const p = PX.byId("persons", e.pid); cand.push({ t: e.pid, school: p.org, d: PX.dist(p.org, km.school), pool: true }); }); why = "Keine geeignete Schule im Bezirk – Zuordnung aus dem RP-weiten Pool. "; }
-      cand.sort((a, b) => (load[a.t] || 0) - (load[b.t] || 0) || (zkCount[a.t] || 0) - (zkCount[b.t] || 0) || b.d - a.d);
-      const zk = cand[0];
-      if (zk) { load[zk.t] = (load[zk.t] || 0) + n; zkCount[zk.t] = (zkCount[zk.t] || 0) + 1; }
-      // Endbeurteilung: andere Schule als EK und ZK, ≥ 50 km zu beiden, Belastung nach Kapazität
-      const ebC = S().persons.filter((p) => p.ebCap && (p.subjects || []).includes(ex.subject) && PX.org(p.org)?.rp === rp && !PX.org(p.org).exclude && p.org !== km.school && p.org !== zk?.school && PX.dist(p.org, km.school) >= 50 && PX.dist(p.org, zk?.school) >= 50)
-        .sort((a, b) => (ebLoad[a.id] || 0) / a.ebCap - (ebLoad[b.id] || 0) / b.ebCap);
-      const eb = ebC[0];
-      if (eb) ebLoad[eb.id] = (ebLoad[eb.id] || 0) + 1;
+      const k = n(km);
+      // Zweitkorrektur: Schule ≠ EK-Schule, ≥ 50 km, nicht auf der Ausschlussliste, mit Fachlehrkräften; Ziel: ZK-Belastung ≈ eigene EK-Belastung
+      const cand = schools.filter((s) => s.id !== km.school && !s.exclude && PX.dist(s.id, km.school) >= 50 && hasT(s.id, "zk"))
+        .map((s) => ({ s: s.id, d: PX.dist(s.id, km.school), score: ((zkLoad[s.id] || 0) + k) / Math.max(1, own[s.id] || 0) }))
+        .sort((a, b) => a.score - b.score || b.d - a.d);
+      let zk = cand[0] ? { school: cand[0].s, d: cand[0].d } : null; let why = "";
+      if (!zk && pool.length) { const e = pool[0]; const p = PX.byId("persons", e.pid); zk = { school: p.org, d: PX.dist(p.org, km.school), suggest: p.id, pool: true }; why = "Keine geeignete Schule im Bezirk – Zuordnung über den RP-weiten Pool. "; }
+      if (zk) zkLoad[zk.school] = (zkLoad[zk.school] || 0) + k;
+      // Endbeurteilung: andere Schule als EK und ZK, ≥ 50 km zu beiden, Ausgleich nach gemeldeter Kapazität
+      const ebC = schools.filter((s) => s.id !== km.school && s.id !== zk?.school && !s.exclude && ebCap[s.id] > 0 && PX.dist(s.id, km.school) >= 50 && PX.dist(s.id, zk?.school) >= 50)
+        .sort((a, b) => (ebLoad[a.id] || 0) / ebCap[a.id] - (ebLoad[b.id] || 0) / ebCap[b.id] || a.id.localeCompare(b.id));
+      const eb = ebC[0]; if (eb) ebLoad[eb.id] = (ebLoad[eb.id] || 0) + k;
       S().groups.push({
         id: "g-" + km.id, km: km.id, exam: examId,
         ek: { school: km.school, teachers: [...km.teachers], confirmed: false },
-        zk: zk ? { school: zk.school, proposed: zk.t, teacher: zk.t, confirmed: false, pool: !!zk.pool } : { school: "", proposed: "", teacher: "", confirmed: false },
-        eb: eb ? { school: eb.org, proposed: eb.id, teacher: eb.id, confirmed: false } : { school: "", proposed: "", teacher: "", confirmed: false },
+        zk: zk ? { school: zk.school, teacher: "", confirmed: false, pool: !!zk.pool, suggest: zk.suggest || "" } : { school: "", teacher: "", confirmed: false },
+        eb: eb ? { school: eb.id, teacher: "", confirmed: false } : { school: "", teacher: "", confirmed: false },
         why: {
-          zk: zk ? `${why}${PX.orgShort(zk.school)}: Entfernung ${zk.d} km (≥ 50 km), nicht auf der Ausschlussliste, Kurslehrkraft im Fach; Belastung danach ${Math.round(load[zk.t])} Arbeiten (EK + ZK).` : "Keine Zuordnung möglich – bitte manuell zuweisen.",
-          eb: eb ? `${PX.orgShort(eb.org)}: andere Schule als EK und ZK, ${PX.dist(eb.org, km.school)} km zur EK-Schule, ${PX.dist(eb.org, zk?.school)} km zur ZK-Schule; Kapazität ${Math.round(eb.ebCap * 100)} %.` : "Keine Endbeurteilung möglich – bitte manuell zuweisen.",
+          zk: zk ? `${why}${PX.orgShort(zk.school)}: ${zk.d} km entfernt (≥ 50 km), nicht auf der Ausschlussliste; Kurs mit ${k} Teilnehmenden ungeteilt zugeordnet; ZK-Belastung der Schule danach ${zkLoad[zk.school]} zu ${own[zk.school] || 0} eigenen EK-Arbeiten.` : "Keine Zuordnung möglich – bitte manuell zuweisen.",
+          eb: eb ? `${PX.orgShort(eb.id)}: andere Schule als EK und ZK, ${PX.dist(eb.id, km.school)} km zur EK-, ${PX.dist(eb.id, zk?.school)} km zur ZK-Schule; Kapazität ${ebCap[eb.id]} (Summe der gemeldeten EB-Anteile).` : "Keine Endbeurteilung möglich – bitte manuell zuweisen.",
         },
         log: [],
       });
     });
     S().rp[rp].built = true; S().rp[rp].builtAt = S().now;
-    PX.audit("Korrekturgruppen automatisch gebildet", `${PX.byId("orgs", rp).name} · ${PX.examLabel(ex)}`, `${order.length} Kursmappen${pool.length ? ", Pool berücksichtigt" : ""}`);
+    PX.audit("Korrekturgruppen automatisch gebildet", `${PX.byId("orgs", rp).name} · ${PX.examLabel(ex)}`, `${order.length} Kurse (${PX.sum(order.map(n))} Teilnehmende) Schulen zugeordnet${pool.length ? ", Pool berücksichtigt" : ""}`);
   };
-  O.editGroup = function (gid, stage, school, teacher, reason) {
+  O.editGroup = function (gid, stage, school, reason, suggest) {
     const g = PX.byId("groups", gid);
-    const before = `${PX.orgShort(g[stage].school)} / ${PX.name(g[stage].teacher)}`;
-    g[stage].school = school; g[stage].teacher = teacher; g[stage].proposed = teacher; g[stage].confirmed = false; g[stage].manual = true;
-    g.log.push({ at: PX.stamp(), who: PX.actorId(), text: `${PX.STAGE[stage]}: ${before} → ${PX.orgShort(school)} / ${PX.name(teacher)} (${reason})` });
-    PX.audit("Korrekturgruppe bearbeitet", PX.kmLabel(g.km), `${PX.STAGE[stage]}: ${before} → ${PX.orgShort(school)} / ${PX.name(teacher)}; Grund: ${reason}`);
+    const before = PX.orgShort(g[stage].school);
+    Object.assign(g[stage], { school, teacher: "", confirmed: false, manual: true, unavailable: "", suggest: suggest || "", pool: !!suggest });
+    g.log.push({ at: PX.stamp(), who: PX.actorId(), text: `${PX.STAGE[stage]}: ${before} → ${PX.orgShort(school)} (${reason})` });
+    PX.audit("Korrekturgruppe bearbeitet", PX.kmLabel(g.km), `${PX.STAGE[stage]}: ${before} → ${PX.orgShort(school)}; Grund: ${reason}`);
   };
   O.releaseGroups = function (rp, examId) {
     S().rp[rp].released = true; S().rp[rp].releasedAt = S().now;
@@ -254,16 +275,16 @@
   O.confirmAssignment = function (gid, stage, pid) {
     const g = PX.byId("groups", gid);
     if (stage === "ek") { g.ek.confirmed = true; PX.audit("Erstkorrektur bestätigt", PX.kmLabel(g.km), g.ek.teachers.map(PX.name).join(", ")); return; }
-    const changed = pid && pid !== g[stage].teacher;
-    if (pid) g[stage].teacher = pid;
-    g[stage].confirmed = true;
-    if (changed) g.log.push({ at: PX.stamp(), who: PX.actorId(), text: `${PX.STAGE[stage]}: Schulleitung bestimmt ${PX.name(pid)} statt Vorschlag ${PX.name(g[stage].proposed)}` });
-    PX.audit(`${PX.STAGE[stage]} – Lehrkraft bestimmt`, PX.kmLabel(g.km), `${PX.name(g[stage].teacher)}${changed ? " (abweichend vom Systemvorschlag)" : " (Systemvorschlag übernommen)"}`);
-    PX.notify(g[stage].teacher, `Sie sind für die ${PX.STAGE[stage]} der Kursmappe ${PX.kmLabel(g.km)} (${PX.examLabel(g.exam)}) vorgesehen.`, "#/korr");
+    pid = pid || PX.pickTeacher(gid, stage); if (!pid) return;
+    const changed = g[stage].teacher && g[stage].teacher !== pid;
+    g[stage].teacher = pid; g[stage].confirmed = true;
+    if (changed) g.log.push({ at: PX.stamp(), who: PX.actorId(), text: `${PX.STAGE[stage]}: Schulleitung ordnet ${PX.name(pid)} zu` });
+    PX.audit(`${PX.STAGE[stage]} – Kurs einer Lehrkraft zugeordnet`, PX.kmPseudo(g.km), `${PX.name(pid)} (${PX.orgShort(g[stage].school)})`);
+    PX.notify(pid, `Ihnen wurde die ${PX.STAGE[stage]} von ${PX.kmPseudo(g.km)} (${PX.examLabel(g.exam)}, ${PX.activeMappen(PX.km(g.km)).length} Arbeiten) zugeordnet.`, "#/korr");
   };
   O.reportUnavailable = function (gid, stage, note) {
     const g = PX.byId("groups", gid); g[stage].unavailable = note || "keine geeignete Lehrkraft verfügbar";
-    PX.notify(S().persons.filter((p) => p.roles.includes("rp")).map((p) => p.id), `Rückmeldung ${PX.orgShort(g[stage].school)}: ${PX.STAGE[stage]} für ${PX.kmLabel(g.km)} nicht besetzbar.`, "#/rp/gruppen");
+    PX.notify(S().persons.filter((p) => p.roles.includes("rp")).map((p) => p.id), `Rückmeldung ${PX.orgShort(g[stage].school)}: ${PX.STAGE[stage]} für ${PX.kmPseudo(g.km)} nicht besetzbar.`, "#/rp/gruppen");
     PX.audit("Korrekturstufe nicht besetzbar gemeldet", PX.kmLabel(g.km), `${PX.STAGE[stage]}: ${g[stage].unavailable}`);
   };
   PX.groupComplete = (g) => g && g.ek.confirmed && g.zk.confirmed && g.eb.confirmed;
@@ -408,9 +429,23 @@
       const v = Math.max(0, Math.min(1, ability + off + (PX.hash(m.student + l.id + stage) - 0.5) * 0.2));
       c.be[l.id] = p.scoring === "np" ? Math.round(v * 15) : p.scoring === "fehler" ? Math.round((1 - v) * 14 * 4) / 4 : Math.round(v * l.be);
     });
-    if (!c.marks.length) { const pg = PX.pagesOf(m).filter((p) => p.kind === "blatt"); const z = PX.examSigns(PX.exam(km.exam)); const pick = (i) => z[Math.floor(PX.hash(m.id + stage + i) * z.length)];
-      const X = stage === "ek" ? 84 : stage === "zk" ? 8 : 14, dy = stage === "ek" ? 0 : stage === "zk" ? 2 : 4;
-      if (pg.length && z.length) c.marks = [{ id: PX.uid("k"), kind: "sign", page: pg[0].id, x: X, y: 30 + dy, sign: pick(1).id, code: pick(1).code }, { id: PX.uid("k"), kind: "line", page: pg[0].id, x1: 18, x2: 62, y: 44 + dy, sign: pick(2).id, code: pick(2).code }, { id: PX.uid("k"), kind: "sign", page: (pg[1] || pg[0]).id, x: X, y: 40 + dy, sign: pick(3).id, code: pick(3).code }]; }
+    if (!c.marks.length) {
+      const pg = PX.pagesOf(m).filter((p) => p.kind === "blatt"); const z = PX.examSigns(PX.exam(km.exam)).filter((x) => !x.count); const pick = (i) => z[Math.floor(PX.hash(m.id + stage + i) * z.length)];
+      const lay = PX.paperLayout(m); const L = (i) => lay[Math.floor(PX.hash(m.id + stage + "l" + i) * lay.length)] || { n: 1, y: 20 };
+      const pid = (n) => (pg[n - 1] || pg[0]).id; const ln = (y, k) => Math.round((y + 5.2 * k) * 10) / 10;
+      if (pg.length && z.length) {
+        const a = L(1), b = L(2), d = L(3);
+        c.marks = [
+          { id: PX.uid("k"), kind: "sign", page: pid(a.n), ax: 30 + PX.hash(m.id + stage) * 30, ay: ln(a.y, 1), sign: pick(1).id, code: pick(1).code },
+          { id: PX.uid("k"), kind: "hline", style: stage === "ek" ? "single" : stage === "zk" ? "wavy" : "double", page: pid(b.n), x1: 20, x2: 58, y: PX.snapLine(ln(b.y, 1)) },
+          { id: PX.uid("k"), kind: "sign", page: pid(b.n), ax: 20, ay: ln(b.y, 1), sign: pick(2).id, code: pick(2).code },
+          { id: PX.uid("k"), kind: "sign", page: pid(b.n), ax: 60, ay: ln(b.y, 1), sign: pick(4).id, code: pick(4).code },
+          ...(stage === "ek" ? [{ id: PX.uid("k"), kind: "vline", page: pid(d.n), y1: ln(d.y, 0.5), y2: ln(d.y, 2.5) }, { id: PX.uid("k"), kind: "sign", page: pid(d.n), ax: 25, ay: ln(d.y, 1.5), sign: pick(3).id, code: pick(3).code }] : []),
+        ];
+      }
+    }
+    // Sprungmarken: Seite und Zeile, auf der die Teilaufgabe steht (bei der Erstkorrektur gesetzt)
+    if (stage === "ek" || !m.anchors) { const pg = PX.pagesOf(m).filter((p) => p.kind === "blatt"); m.anchors = m.anchors || {}; PX.paperLayout(m).forEach((x) => { if (!m.anchors[x.id] && pg[x.n - 1]) m.anchors[x.id] = { page: pg[x.n - 1].id, y: x.y, by: stage }; }); }
     if (r.gutachten?.on) { c.gutachten = {}; r.gutachten.sections.forEach((sec, i) => { const b = r.gutachten.bausteine?.[Math.floor(PX.hash(m.id + stage + i) * (r.gutachten.bausteine.length || 1))]; c.gutachten[sec] = b ? b.text : "Die Arbeit zeigt insgesamt solide Kenntnisse. (Demo-Gutachten)"; }); }
     if (r.formPdf) c.formPdf = { file: `Formblatt_${m.nr}.pdf`, at: S().now };
     c.by = pid; c.state = "in_bearbeitung";
@@ -434,19 +469,19 @@
     if (!st.lkDone.includes(pid)) st.lkDone.push(pid);
     PX.audit(`Kursmappenabschluss ${PX.STAGE[stage]} bestätigt (Lehrkraft)`, PX.kmLabel(km), PX.name(pid));
     const ss = PX.stageState(km, stage);
-    if (ss.lkDone) { const school = stage === "ek" ? km.school : PX.groupOf(km)[stage].school; PX.notify(PX.sltOf(school).map((p) => p.id), `${PX.STAGE[stage]} der Kursmappe ${PX.kmLabel(km)} abgeschlossen – bitte Abschluss bestätigen.`, "#/slt/stand"); }
+    if (ss.lkDone) { const school = stage === "ek" ? km.school : PX.groupOf(km)[stage].school; PX.notify(PX.sltOf(school).map((p) => p.id), `${PX.STAGE[stage]} von ${PX.kmFor(km, stage)} abgeschlossen – bitte Abschluss bestätigen.`, "#/slt/stand"); }
   };
   O.sltConfirm = function (kmId, stage) {
     const km = PX.km(kmId); const st = km.stages[stage]; st.sltOk = true; st.sltBy = PX.actorId(); st.at = S().now;
     PX.audit(`Abschluss ${PX.STAGE[stage]} durch Schulleitung bestätigt`, PX.kmLabel(km), "");
     const g = PX.groupOf(km);
-    if (stage === "ek") PX.notify(g.zk.teacher, `Die Kursmappe ${PX.kmLabel(km)} ist zur Zweitkorrektur freigegeben (anonymisiert). (E-Mail versendet)`, "#/korr");
-    if (stage === "zk") { O.computeEB(kmId); PX.notify(g.eb.teacher, `Endbeurteilung für ${PX.kmLabel(km)}: ${PX.activeMappen(km).filter((m) => m.ebRequired).length} Mappe(n) verpflichtend. Beginn ab ${PX.fmtD(PX.exam(km.exam).ebStart)}. (E-Mail versendet)`, "#/korr"); }
+    if (stage === "ek") PX.notify(g.zk.teacher, `${PX.kmPseudo(km)} ist zur Zweitkorrektur freigegeben (pseudonymisiert). (E-Mail versendet)`, "#/korr");
+    if (stage === "zk") { O.computeEB(kmId); PX.notify(g.eb.teacher, `Endbeurteilung für ${PX.kmPseudo(km)}: ${PX.activeMappen(km).filter((m) => m.ebRequired).length} Mappe(n) verpflichtend. Beginn ab ${PX.fmtD(PX.exam(km.exam).ebStart)}. (E-Mail versendet)`, "#/korr"); }
     if (stage === "eb") O.finalize(kmId);
   };
   O.sltReturn = function (kmId, stage, pid) {
     const km = PX.km(kmId); km.stages[stage].lkDone = km.stages[stage].lkDone.filter((x) => x !== pid);
-    PX.notify(pid, `Die Schulleitung hat die ${PX.STAGE[stage]} der Kursmappe ${PX.kmLabel(km)} an Sie zurückverfügt.`, "#/korr");
+    PX.notify(pid, `Die Schulleitung hat die ${PX.STAGE[stage]} von ${PX.kmFor(km, stage)} an Sie zurückverfügt.`, "#/korr");
     PX.audit(`${PX.STAGE[stage]} zurückverfügt`, PX.kmLabel(km), PX.name(pid));
   };
   O.computeEB = function (kmId) {
@@ -494,7 +529,7 @@
       const end = ph.key === "ek" ? ex.ekEnd : ph.key === "zk" ? ex.zkEnd : ex.ebEnd;
       const left = PX.daysBetween(S().now, end);
       const school = ph.key === "ek" ? km.school : PX.groupOf(km)?.[ph.key]?.school;
-      if (left <= 2 && left >= 0 && !km["warn_" + ph.key]) { km["warn_" + ph.key] = true; PX.notify(PX.sltOf(school).map((p) => p.id), `Frist ${PX.STAGE[ph.key]} endet am ${PX.fmtD(end)} – Kursmappe ${PX.kmLabel(km)} ist noch nicht abgeschlossen. (E-Mail versendet)`, "#/slt/stand"); }
+      if (left <= 2 && left >= 0 && !km["warn_" + ph.key]) { km["warn_" + ph.key] = true; PX.notify(PX.sltOf(school).map((p) => p.id), `Frist ${PX.STAGE[ph.key]} endet am ${PX.fmtD(end)} – ${PX.kmFor(km, ph.key)} ist noch nicht abgeschlossen. (E-Mail versendet)`, "#/slt/stand"); }
     });
   }
 })();

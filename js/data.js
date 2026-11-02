@@ -4,7 +4,7 @@
 (function () {
   "use strict";
   const PX = window.PX;
-  PX.DATA_VERSION = 8;
+  PX.DATA_VERSION = 9;
 
   // Schulen und Behörden (Koordinaten für das 50-km-Kriterium, Luftlinie)
   const ORGS = [
@@ -166,7 +166,7 @@
       nodes: [node("p1", "d1", "1", "Interpretation literarischer Texte"), node("p1", "d2", "2", "Lyrik / Kurzprosa"), node("p1", "d2a", "2a", "Gedichtinterpretation / -vergleich", null, "d2"), node("p1", "d2b", "2b", "Interpretation eines Kurzprosatextes", null, "d2"), node("p1", "d3", "3", "Texterörterung (mit Berufsweltbezug)"), node("p1", "d4", "4", "Textanalyse")],
       groups: [{ id: "gd", label: "Aufgabenwahl: 1 aus 4", options: ["d1", "d2", "d3", "d4"], pick: 1, chooser: "schueler" }, { id: "gd2", label: "Aufgabe 2: a oder b", options: ["d2a", "d2b"], pick: 1, chooser: "schueler" }],
       gutachten: { on: true, required: true, sections: ["Begründung der Note"], bausteine: BAUSTEINE_DE }, formPdf: false, caps: [] },
-    { id: "rs-ma-27", name: "Mathematik BG – Haupttermin 2027", subject: "ma", year: 2027, form: "BG", status: "freigegeben", combine: "sum", key: "bg100", round: { stage: "round", final: "ceil" }, abzugMax: 2, bonus: { max: 7 }, beHalf: true,
+    { id: "rs-ma-27", name: "Mathematik BG – Haupttermin 2027", subject: "ma", year: 2027, form: "BG", status: "freigegeben", combine: "sum", key: "bg100", round: { stage: "round", final: "ceil" }, abzugMax: 2, bonus: { on: true, max: 7 }, beHalf: true,
       parts: [{ id: "pa", name: "Teil A", scoring: "be" }, { id: "pb", name: "Teil B", scoring: "be" }],
       nodes: [node("pa", "a1", "A1", "Pflichtteil (ohne Hilfsmittel)"), node("pa", "a11", "A1.1", "Ableitung", 5, "a1"), node("pa", "a12", "A1.2", "Integral", 5, "a1"), node("pa", "a13", "A1.3", "Vektoren", 5, "a1"), node("pa", "a14", "A1.4", "Wahrscheinlichkeit", 5, "a1"),
         node("pa", "a2", "A2", "Schüler-Wahlteil"), node("pa", "a2x", "A2-W", "Zwei Wahlaufgaben", null, "a2"), node("pa", "w1", "W1", "Sachgebiet 1, Aufgabe 1", 10, "a2x"), node("pa", "w2", "W2", "Sachgebiet 1, Aufgabe 2", 10, "a2x"), node("pa", "w3", "W3", "Sachgebiet 2, Aufgabe 1", 10, "a2x"), node("pa", "w4", "W4", "Sachgebiet 2, Aufgabe 2", 10, "a2x"), node("pa", "pla", "PLA", "Problemlöseaufgabe (verbleibendes Sachgebiet)", 20, "a2"),
@@ -186,7 +186,7 @@
       groups: [{ id: "gsatz", label: "Aufgabensatz A oder B", options: ["sa", "sb"], pick: 1, chooser: "schueler" }, { id: "ga3", label: "Aufgabe A3: a oder b", options: ["sa3a", "sa3b"], pick: 1, chooser: "schueler" }, { id: "gb3x", label: "Aufgabe B3: a oder b", options: ["sb3a", "sb3b"], pick: 1, chooser: "schueler" }],
       caps: [{ part: "t2", nodes: ["inh", "spr"], below: 1, max: 3, label: "Inhalt oder Sprache ungenügend → Teil II höchstens 3 NP" }],
       gutachten: { on: false, sections: ["Gutachten"], bausteine: [] }, formPdf: false },
-    { id: "rs-gmt-27", name: "GMT – Haupttermin 2027", subject: "gmt", year: 2027, form: "BG", status: "freigegeben", combine: "sum", key: "bg120", round: { stage: "round", final: "ceil" }, abzugMax: 2, bonus: { max: 8 },
+    { id: "rs-gmt-27", name: "GMT – Haupttermin 2027", subject: "gmt", year: 2027, form: "BG", status: "freigegeben", combine: "sum", key: "bg120", round: { stage: "round", final: "ceil" }, abzugMax: 2, bonus: { on: true, max: 8 },
       parts: [{ id: "p1", name: "Prüfung", scoring: "be" }],
       nodes: [node("p1", "g1", "1", "Pflichtaufgabe Mediengestaltung"), node("p1", "g11", "1.1", "Konzeption", 20, "g1"), node("p1", "g12", "1.2", "Umsetzung", 20, "g1"), node("p1", "g2", "2", "Pflichtaufgabe Produktgestaltung"), node("p1", "g21", "2.1", "Entwurf", 20, "g2"), node("p1", "g22", "2.2", "Technische Zeichnung", 20, "g2"), node("p1", "g3", "3", "Wahlaufgabe Produktgestaltung", 40), node("p1", "g4", "4", "Wahlaufgabe Mediengestaltung", 40)],
       groups: [{ id: "gg", label: "Wahlaufgabe 3 oder 4", options: ["g3", "g4"], pick: 1, chooser: "schueler" }],
@@ -194,6 +194,10 @@
     { id: "rs-la-27", name: "Latein AG – Haupttermin 2027", subject: "la", year: 2027, form: "AG", status: "freigegeben", combine: "mean", round: { stage: "round", final: "ceil" }, abzugMax: 2,
       parts: [{ id: "ue", name: "Übersetzung", scoring: "fehler", key: "fs-la", weight: 50 }, { id: "in", name: "Interpretation", scoring: "be", key: "ag60", weight: 50 }],
       nodes: [node("ue", "ue1", "Ü", "Fehlerzahl der Übersetzung"), node("in", "i1", "I 1", "Inhaltserschließung", 20), node("in", "i2", "I 2", "Stilistische Analyse", 20), node("in", "i3", "I 3", "Rezeption / Vergleich", 20)],
+      groups: [], gutachten: { on: false, sections: ["Gutachten"], bausteine: [] }, formPdf: false, caps: [] },
+    { id: "rs-ph-27", name: "Physik AG – Haupttermin 2027 (Entwurf)", subject: "ph-ag", year: 2027, form: "AG", status: "entwurf", combine: "sum", key: "ag80", round: { stage: "round", final: "ceil" }, abzugMax: 2, bonus: { on: true, max: 0 },
+      parts: [{ id: "p1", name: "Prüfung", scoring: "be" }],
+      nodes: [node("p1", "f1", "1", "Mechanik", 40), node("p1", "f2", "2", "Elektrodynamik", 40), node("p1", "f3", "3", "Quantenphysik", 40)],
       groups: [], gutachten: { on: false, sections: ["Gutachten"], bausteine: [] }, formPdf: false, caps: [] },
     { id: "rs-bk-27", name: "Bildende Kunst AG – Haupttermin 2027", subject: "bk", year: 2027, form: "AG", status: "freigegeben", combine: "weighted", round: { stage: "round", final: "ceil" }, abzugMax: 2,
       parts: [{ id: "p1", name: "Prüfung", scoring: "np", weight: 100 }],

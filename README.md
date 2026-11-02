@@ -80,3 +80,15 @@ Der Fortschritt wird aus den Daten erkannt.
 - **Endbeurteilung AG**: zusätzlich Stichprobe von 2 Prüfungen je Kurs.
 - **Konzeptpapier**: Erkennung über die Farbmarkierung, beim Scannen umkennzeichenbar.
 - Neue Klickstrecke 9 „Bewertungsraster und Korrekturfunktionen“; Beispielraster für VBWL, Deutsch, Mathematik, Englisch, GMT, Latein und Bildende Kunst.
+
+## Neu in Version 1.1 (02.11.2026)
+
+- **Randkorrektur wie im Mockup Prüfungsplattform**: Korrekturzeichen stehen am Rand, ohne Rahmen, die Schülerschrift bleibt sichtbar – EK rechts rot, ZK links grün, EB links außen braun; mehrere Zeichen einer Zeile kommagetrennt. Klick auf ein Randzeichen zeigt die markierte Stelle.
+- **Unterstreichungen** einfach, doppelt, gekringelt (automatisch gerade gezogen, an der Zeile ausgerichtet) und **vertikaler Randstrich**; Radierer, Tastenkürzel (S, Z, U, V, P, E, Entf).
+- **Stift (Tablet)**: Gesten für Linien, handschriftliche Korrekturzeichen werden erkannt und an den Rand gesetzt; nur die zugelassenen Zeichen der Prüfung, bei Unsicherheit Rückfrage, sonst erneut schreiben.
+- **Sprungmarken** je Teilaufgabe: entstehen automatisch beim Eintragen der Punkte (Seite und Zeile), per Lesezeichen im Bewertungsbereich setzen/springen, Auswahlliste über dem Dokument.
+- **Zusatz-BE** für besonders gute Lösungen nur nach Freischaltung im Raster mit Angabe der BE; erweiterte **Plausibilitätsprüfungen** (z. B. Notenschlüssel 80 BE bei 120 erreichbaren BE) im Raster und bei der Prüfungsanlage.
+- **Prüfungstermine** mit Beginn und Dauer (Ende wird berechnet); **Erwartungshorizont** bei der Anlage verschlüsselt hinterlegt, automatische Entschlüsselung mit Prüfungsbeginn.
+- **Deckblätter** vorab drucken; **Teilnahme** erst ab Prüfungsbeginn erfassbar.
+- **Korrekturgruppen**: Das RP ordnet Kurse (ungeteilt) Schulen zu – nach Kursen und Teilnehmenden je Schule; die Schulleitungen fügen die Kurse ihren Fachlehrkräften hinzu. ZK/EB arbeiten pseudonymisiert ohne Herkunftsschule.
+- Bewertungsraster sind landesweit einheitlich; Testkorrektur nur für das IBBW.

@@ -8,13 +8,13 @@
   // ---------- Übersicht ----------
   PX.route(/^ibbw$/, () => ({ title: "Übersicht", shell: "staff", need, render: () => {
     const ex = PX.S.exams.filter((e) => e.year === 2027);
-    const missing = ex.filter((e) => e.status === "angelegt" && !e.ewh && e.date <= PX.S.now);
+    const missing = ex.filter((e) => e.status === "angelegt" && !e.ewh);
     return `${PX.pagehead("Prüfungserstellung", "Abitur 2027 · Berufliche und allgemeinbildende Gymnasien", `<a class="btn" href="#/ibbw/kalender">${icon("calendar-range")} Korrekturkalender</a><a class="btn primary" href="#/ibbw/pruefung/neu">${icon("plus")} Prüfung anlegen</a>`)}
       <div class="statgrid"><div class="stat"><div class="v">${ex.filter((e) => e.status === "angelegt").length}</div><div class="small muted">Prüfungen angelegt</div></div>
       <div class="stat"><div class="v">${ex.filter((e) => e.cal).length}/${ex.length}</div><div class="small muted">mit Korrekturkalender verknüpft</div></div>
       <div class="stat"><div class="v">${PX.S.rasters.filter((r) => r.status === "freigegeben").length}/${PX.S.rasters.length}</div><div class="small muted">Bewertungsraster freigegeben</div></div>
       <div class="stat"><div class="v">${PX.S.signs.length}</div><div class="small muted">Korrekturzeichen</div></div></div>
-      ${missing.length ? `<div class="notice warn mt">${icon("triangle-alert")}<div><b>Erwartungshorizont fehlt</b><br>${missing.map((e) => `<a href="#/ibbw/pruefung/${e.id}?tab=grundlagen">${esc(PX.examLabel(e))}</a>`).join(", ")} – muss vor Beginn der Korrektur vorliegen.</div></div>` : ""}
+      ${missing.length ? `<div class="notice warn mt">${icon("triangle-alert")}<div><b>Erwartungshorizont fehlt</b><br>${missing.map((e) => `<a href="#/ibbw/pruefung/${e.id}?tab=grundlagen">${esc(PX.examLabel(e))}</a>`).join(", ")} – muss verschlüsselt hinterlegt werden (Entschlüsselung automatisch zu Prüfungsbeginn).</div></div>` : ""}
       <h2 class="mt-l">Prüfungskalender 2027</h2>${examTable(ex.sort((a, b) => a.date.localeCompare(b.date)))}
       <div class="notice info mt">${icon("lock")}<div class="small">Bewertungsraster, Erwartungshorizont und Korrekturrichtlinie sind bis zum Ende der offiziellen Prüfungszeit nur für die anlegende Person sowie die zugehörige Referats- und Abteilungsleitung sichtbar. Prüfungsfach, Termin, Terminart und Korrekturzeiträume sehen die Schulen ab Anlage.</div></div>`;
   } }));
@@ -22,9 +22,9 @@
   function examTable(list) {
     if (!list.length) return PX.empty("Keine Prüfungen gefunden");
     return `<div class="tablewrap"><table class="tbl"><thead><tr><th>Prüfungsfach</th><th>Terminart</th><th>Termin</th><th>Korrekturzeiträume</th><th>Bewertungsraster</th><th>Erwartungshorizont</th><th>Status</th><th></th></tr></thead><tbody>
-      ${list.map((e) => { const s = PX.subj(e.subject); const r = PX.byId("rasters", e.raster); return `<tr><td><b>${esc(s.name)}</b><div class="xs muted">${esc(s.form)}</div></td><td>${esc(PX.TYPE[e.type])}</td><td class="nowrap">${PX.fmtDW(e.date)}<div class="xs muted">${esc(e.time || "")}–${esc(e.end || "")} Uhr</div></td>
+      ${list.map((e) => { const s = PX.subj(e.subject); const r = PX.byId("rasters", e.raster); return `<tr><td><b>${esc(s.name)}</b><div class="xs muted">${esc(s.form)}</div></td><td>${esc(PX.TYPE[e.type])}</td><td class="nowrap">${PX.fmtDW(e.date)}<div class="xs muted">${esc(e.time || "")} Uhr · ${e.duration || PX.durOf(e.time, e.end)} Min. (bis ${esc(e.end || "")})</div></td>
       <td class="xs">${e.ekEnd ? `EK bis ${PX.fmtD(e.ekEnd)}<br>ZK bis ${PX.fmtD(e.zkEnd)}<br>EB ${PX.fmtD(e.ebStart)}–${PX.fmtD(e.ebEnd)}<br>${e.cal ? PX.badge("Kalender " + PX.examForm(e), "cyan") : PX.badge("abweichend", "yellowb")}` : `<span class="muted">fehlt</span>`}</td>
-      <td class="small">${r ? esc(r.name) : `<span class="muted">–</span>`}</td><td class="small">${e.ewh ? `${icon("file-check")} ${PX.fmtD(e.ewh.date)}` : `<span class="muted">noch nicht</span>`}</td>
+      <td class="small">${r ? esc(r.name) : `<span class="muted">–</span>`}</td><td class="small">${e.ewh ? `${icon(PX.ewhOpen(e) ? "file-check" : "lock-keyhole")} ${PX.ewhOpen(e) ? "entschlüsselt" : "verschlüsselt"}` : `<span class="warntext">fehlt</span>`}</td>
       <td>${e.status === "angelegt" ? PX.badge("angelegt", "green") : PX.badge("Entwurf", "yellowb")}</td><td><a class="btn sm" href="#/ibbw/pruefung/${e.id}">Öffnen</a></td></tr>`; }).join("")}</tbody></table></div>`;
   }
 
@@ -52,7 +52,7 @@
 
   // ---------- Assistent „Prüfung anlegen“ ----------
   let wiz = null;
-  const blankTerm = () => ({ on: true, date: "", time: "08:30", end: "13:00", own: false, ekEnd: "", zkEnd: "", ebStart: "", ebEnd: "" });
+  const blankTerm = () => ({ on: true, date: "", time: "08:30", dur: 270, ewh: "", own: false, ekEnd: "", zkEnd: "", ebStart: "", ebEnd: "" });
   const blankWiz = () => ({ step: 0, subject: "", terms: { HT: blankTerm(), NT: blankTerm(), NNT: blankTerm() }, raster: "", guideline: "", zusatz: false, signset: null, partSigns: {} });
   const STEPS = ["Prüfungsfach", "Prüfungstermine", "Korrekturzeiträume", "Bewertung und Korrekturzeichen", "Prüfen und speichern"];
   // Effektive Zeiträume: aus dem Korrekturkalender (Schulform, Terminart, Jahr) oder abweichend
@@ -66,6 +66,32 @@
     return e;
   }
   PX.termErrors = termErrors;
+  // Plausibilitätsprüfung einer Prüfungskonfiguration (Anlage und Details)
+  PX.examChecks = function (d) {
+    const out = []; const E = (t) => out.push({ level: "error", text: t }); const W = (t) => out.push({ level: "warn", text: t });
+    const R = PX.byId("rasters", d.raster);
+    if (!d.subject) E("Prüfungsfach fehlt");
+    if (!R) E("Bewertungsraster fehlt");
+    else {
+      if (R.subject !== d.subject) E(`Bewertungsraster „${R.name}“ gehört nicht zum Prüfungsfach`);
+      if (R.status !== "freigegeben") E(`Bewertungsraster „${R.name}“ ist nicht freigegeben`);
+      PX.rasterIssues(R).filter((x) => x.level !== "ok").forEach((x) => (x.level === "error" ? E : W)("Raster: " + x.text));
+      if (R.form && PX.schulform(d.subject) !== R.form) E(`Raster ist für ${R.form}, das Fach für ${PX.schulform(d.subject)}`);
+      const sg = (d.signset || []).map((id) => PX.byId("signs", id)).filter(Boolean);
+      R.parts.filter((p) => p.scoring === "fehler").forEach((p) => { const set = d.partSigns?.[p.id]?.length ? d.partSigns[p.id].map((id) => PX.byId("signs", id)) : sg; if (!set.some((z) => z && (z.weight || z.count))) W(`${p.name}: Fehlerzahl ohne gewichtete Korrekturzeichen – die Fehlerzahl kann nicht aus den Zeichen ermittelt werden`); });
+    }
+    if (!(d.signset || []).length) E("Keine Korrekturzeichen ausgewählt");
+    const terms = d.terms || []; const ord = ["HT", "NT", "NNT"];
+    terms.forEach((t) => {
+      const L = PX.TYPE[t.type] + ": ";
+      termErrors(t).forEach((x) => E(L + x));
+      const dur = +(t.dur ?? t.duration); if (!(dur > 0)) E(L + "Dauer fehlt"); else { if (dur < 60 || dur > 420) W(L + `ungewöhnliche Dauer (${dur} Minuten)`); if (PX.endTime(t.time, dur) > "18:00" || PX.endTime(t.time, dur) < String(t.time)) W(L + "Prüfung endet nach 18:00 Uhr"); }
+      if (!t.ewh) E(L + "Erwartungshorizont fehlt (muss bei der Anlage verschlüsselt hinterlegt werden)");
+      if (t.date && new Date(t.date).getDay() % 6 === 0) W(L + "Prüfungstermin liegt auf einem Wochenende");
+    });
+    terms.forEach((t) => { const prev = terms.find((x) => ord.indexOf(x.type) === ord.indexOf(t.type) - 1); if (prev && t.date && prev.date && t.date <= prev.date) E(`${PX.TYPE[t.type]} muss nach dem ${PX.TYPE[prev.type]} liegen`); });
+    return out;
+  };
   // Zeichen der Prüfung und Zeichensatz je Prüfungsteil (wird auch in den Prüfungsdetails verwendet)
   function signsEditor(subject, signset, partSigns, raster, ro) {
     const all = PX.signsFor(subject); const kp = raster ? raster.parts.filter((p) => p.scoring !== "extern") : [];
@@ -94,8 +120,9 @@
           <p class="small mt-s">Schulform: <b>${formLabel(form)}</b> · Priorität Korrekturgruppenbildung: <b>${esc(s.prio)}</b></p></div>` : ""}`;
     }
     if (w.step === 1) body = `<p class="small muted">Für jede Terminart wird eine eigene Prüfung angelegt. Gepflegt wird nur der Tag der schriftlichen Prüfung.</p>
-      <div class="tablewrap"><table class="tbl"><thead><tr><th>Terminart</th><th>Datum *</th><th>Beginn</th><th>Ende (offizielle Prüfungszeit)</th></tr></thead><tbody>
-      ${Object.entries(w.terms).map(([k, t]) => `<tr><td><label class="checkbox"><input type="checkbox" data-on="${k}" ${t.on ? "checked" : ""} ${k === "HT" ? "disabled" : ""}> ${PX.TYPE[k]}</label></td><td><input type="date" class="input" data-f="${k}.date" value="${t.date}" ${t.on ? "" : "disabled"}></td><td><input type="time" class="input" data-f="${k}.time" value="${t.time}" ${t.on ? "" : "disabled"}></td><td><input type="time" class="input" data-f="${k}.end" value="${t.end}" ${t.on ? "" : "disabled"}></td></tr>`).join("")}</tbody></table></div>`;
+      <div class="tablewrap"><table class="tbl"><thead><tr><th>Terminart</th><th>Datum *</th><th>Beginn *</th><th>Dauer (Minuten) *</th><th>Ende (berechnet)</th></tr></thead><tbody>
+      ${Object.entries(w.terms).map(([k, t]) => `<tr><td><label class="checkbox"><input type="checkbox" data-on="${k}" ${t.on ? "checked" : ""} ${k === "HT" ? "disabled" : ""}> ${PX.TYPE[k]}</label></td><td><input type="date" class="input" data-f="${k}.date" value="${t.date}" ${t.on ? "" : "disabled"}></td><td><input type="time" class="input" data-f="${k}.time" value="${t.time}" ${t.on ? "" : "disabled"}></td><td><input type="number" min="30" max="480" step="5" class="input" style="width:110px" data-f="${k}.dur" value="${t.dur}" ${t.on ? "" : "disabled"}></td><td class="nowrap"><b>${t.on ? PX.endTime(t.time, t.dur) + " Uhr" : "–"}</b></td></tr>`).join("")}</tbody></table></div>
+      <p class="xs muted mt-s">Die offizielle Prüfungszeit endet mit Beginn + Dauer; Nachteilsausgleiche (Zeitverlängerung) werden je Prüfling erfasst.</p>`;
     if (w.step === 2) body = `<p class="small muted">Die Korrekturzeiträume werden aus dem globalen <a href="#/ibbw/kalender">Korrekturkalender</a> (${formLabel(form)}) übernommen und bleiben mit ihm verknüpft: Ändert sich der Kalender, ändern sich alle verknüpften Prüfungen. Nur in Ausnahmefällen legen Sie abweichende Zeiträume fest.</p>
       <div class="tablewrap"><table class="tbl"><thead><tr><th>Terminart</th><th>Prüfung</th><th>Quelle</th><th>Ende Erstkorrektur</th><th>Ende Zweitkorrektur</th><th>Beginn Endbeurteilung</th><th>Ende Endbeurteilung</th></tr></thead><tbody>
       ${Object.entries(w.terms).filter(([, t]) => t.on).map(([k, t]) => { const e = effTerm(w.subject, k, t); const er = termErrors(e); const cal = calOf(w.subject, k, t.date);
@@ -111,17 +138,18 @@
         <div class="field row"><label class="toggle"><input type="checkbox" id="w-zus" ${w.zusatz ? "checked" : ""}><span></span></label><div><b>Zusatzdateien durch Erstkorrektur erlauben</b><div class="xs muted">Standard: deaktiviert (nur in Ausnahmefällen, z. B. CAD-Dateien)</div></div></div>
         <div class="card soft pad">${signsEditor(w.subject, w.signset || [], w.partSigns, R)}</div></div>
         <div>${R ? PX.rasterPreview(R) : `<div class="card soft pad small muted">${icon("table")} Vorschau des Bewertungsrasters erscheint nach der Auswahl.</div>`}
-        <div class="notice info mt">${icon("file-up")}<div class="small"><b>Erwartungshorizont</b> wird in der Regel am Prüfungstag hochgeladen (frühestens ab Beginn der Prüfung) – über die Prüfungsdetails.</div></div></div></div>`;
+        <div class="card pad mt"><h3>${icon("lock-keyhole")} Erwartungshorizont je Termin *</h3><p class="xs muted">Wird bereits jetzt hinterlegt, sofort verschlüsselt gespeichert und erst mit Beginn der jeweiligen Prüfung automatisch entschlüsselt. Bis dahin kann ihn niemand öffnen – auch nicht das IBBW.</p>
+          ${Object.entries(w.terms).filter(([, t]) => t.on).map(([k, t]) => `<div class="row between mt-s"><span class="small"><b>${PX.TYPE[k]}</b>${t.date ? " · " + PX.fmtD(t.date) : ""}</span>${t.ewh ? `<span class="filechip">${icon("lock-keyhole")} ${esc(t.ewh)} <button class="link xs" data-ewhrm="${k}">entfernen</button></span>` : `<span class="row"><label class="btn sm">${icon("upload")} PDF wählen<input type="file" accept="application/pdf" hidden data-ewhf="${k}"></label><button class="btn sm ghost" data-ewhdemo="${k}">Demo-PDF</button></span>`}</div>`).join("")}</div></div></div>`;
     }
     if (w.step === 4) {
       const terms = Object.entries(w.terms).filter(([, t]) => t.on).map(([k, t]) => [k, effTerm(w.subject, k, t)]);
-      const errs = terms.flatMap(([k, t]) => termErrors(t).map((e) => PX.TYPE[k] + ": " + e));
-      if (!w.raster) errs.push("Bewertungsraster fehlt");
-      if (!(w.signset || []).length) errs.push("Keine Korrekturzeichen ausgewählt");
+      const chk = PX.examChecks({ subject: w.subject, raster: w.raster, signset: w.signset || [], partSigns: w.partSigns, terms: terms.map(([k, t]) => ({ type: k, ...t })) });
+      const errs = chk.filter((x) => x.level === "error").map((x) => x.text); const warns = chk.filter((x) => x.level === "warn").map((x) => x.text);
       const R = PX.byId("rasters", w.raster);
-      body = `${PX.kv([["Prüfungsfach", esc(s?.name || "–") + " – " + esc(s?.form || "")], ["Korrekturzeichen", (w.signset || []).map((id) => esc(PX.byId("signs", id)?.code)).join(" ") + (Object.values(w.partSigns).some((x) => x.length) ? `<br><span class="xs muted">eigene Zeichensätze: ${Object.entries(w.partSigns).filter(([, x]) => x.length).map(([p, x]) => esc(R?.parts.find((q) => q.id === p)?.name || p) + " (" + x.length + ")").join(", ")}</span>` : "")], ["Bewertungsraster", esc(R?.name || "–")], ["Korrekturrichtlinie", esc(PX.byId("guidelines", w.guideline)?.name || "keine")], ["Zusatzdateien", w.zusatz ? "erlaubt" : "nicht erlaubt"]])}
-        <div class="tablewrap mt"><table class="tbl compact"><thead><tr><th>Terminart</th><th>Prüfung</th><th>Quelle</th><th>EK bis</th><th>ZK bis</th><th>EB von – bis</th></tr></thead><tbody>${terms.map(([k, t]) => `<tr><td>${PX.TYPE[k]}</td><td>${PX.fmtDW(t.date)} ${esc(t.time)}–${esc(t.end)}</td><td>${t.cal ? PX.badge("Kalender", "cyan") : PX.badge("abweichend", "yellowb")}</td><td>${PX.fmtD(t.ekEnd)}</td><td>${PX.fmtD(t.zkEnd)}</td><td>${PX.fmtD(t.ebStart)} – ${PX.fmtD(t.ebEnd)}</td></tr>`).join("")}</tbody></table></div>
-        ${errs.length ? `<div class="notice warn mt">${icon("circle-alert")}<div><b>Pflichtangaben unvollständig</b><br>${errs.map(esc).join("<br>")}<br><span class="small">Sie können die Prüfung als Entwurf speichern und später vervollständigen.</span></div></div>` : `<div class="notice success mt">${icon("circle-check")}<div>Alle Pflichtangaben sind vollständig. Nach dem Speichern erhalten die Schulleitungsteams eine Information.</div></div>`}`;
+      body = `${PX.kv([["Prüfungsfach", esc(s?.name || "–") + " – " + esc(s?.form || "")], ["Korrekturzeichen", (w.signset || []).map((id) => esc(PX.byId("signs", id)?.code)).join(" ") + (Object.values(w.partSigns).some((x) => x.length) ? `<br><span class="xs muted">eigene Zeichensätze: ${Object.entries(w.partSigns).filter(([, x]) => x.length).map(([p, x]) => esc(R?.parts.find((q) => q.id === p)?.name || p) + " (" + x.length + ")").join(", ")}</span>` : "")], ["Bewertungsraster", esc(R?.name || "–")], ["Korrekturrichtlinie", esc(PX.byId("guidelines", w.guideline)?.name || "keine")], ["Zusatzdateien", w.zusatz ? "erlaubt" : "nicht erlaubt"], ["Zusatz-BE", R?.bonus?.on ? `bis ${R.bonus.max} BE für besonders gute Lösungen (im Raster freigeschaltet)` : "nicht vorgesehen"]])}
+        <div class="tablewrap mt"><table class="tbl compact"><thead><tr><th>Terminart</th><th>Prüfung</th><th>Erwartungshorizont</th><th>Quelle</th><th>EK bis</th><th>ZK bis</th><th>EB von – bis</th></tr></thead><tbody>${terms.map(([k, t]) => `<tr><td>${PX.TYPE[k]}</td><td>${PX.fmtDW(t.date)} ${esc(t.time)} Uhr · ${t.dur} Min. (bis ${PX.endTime(t.time, t.dur)})</td><td class="small">${t.ewh ? icon("lock-keyhole") + " verschlüsselt" : `<span class="warntext">fehlt</span>`}</td><td>${t.cal ? PX.badge("Kalender", "cyan") : PX.badge("abweichend", "yellowb")}</td><td>${PX.fmtD(t.ekEnd)}</td><td>${PX.fmtD(t.zkEnd)}</td><td>${PX.fmtD(t.ebStart)} – ${PX.fmtD(t.ebEnd)}</td></tr>`).join("")}</tbody></table></div>
+        ${warns.length ? `<div class="notice peach mt">${icon("triangle-alert")}<div><b>Hinweise der Plausibilitätsprüfung</b><br>${warns.map(esc).join("<br>")}</div></div>` : ""}
+        ${errs.length ? `<div class="notice warn mt">${icon("circle-alert")}<div><b>Fehlerhafte oder unvollständige Konfiguration</b><br>${errs.map(esc).join("<br>")}<br><span class="small">Sie können die Prüfung als Entwurf speichern und später vervollständigen.</span></div></div>` : `<div class="notice success mt">${icon("circle-check")}<div>Alle Pflichtangaben sind vollständig. Nach dem Speichern erhalten die Schulleitungsteams eine Information.</div></div>`}`;
     }
     return `${PX.pagehead("Prüfung anlegen", "Assistent · " + STEPS[w.step], `<button class="btn ghost" id="w-demo" title="Termine des Demo-Szenarios eintragen">${icon("zap")} Demo-Werte einsetzen</button><button class="btn" id="w-cancel">${icon("x")} Abbrechen</button>`)}
       ${PX.steps(STEPS, w.step)}<div class="card pad mt">${body}</div>
@@ -129,9 +157,13 @@
       <div class="row">${w.step === 4 ? `<button class="btn" id="w-draft">${icon("save")} Als Entwurf speichern</button><button class="btn primary" id="w-save">${icon("check")} Prüfung speichern</button>` : `<button class="btn primary" id="w-next">Weiter ${icon("arrow-right")}</button>`}</div></div>`;
   }, mount: (r) => {
     if (!wiz) wiz = blankWiz(); const w = wiz;
-    $$("[data-f]", r).forEach((i) => (i.onchange = () => { const [k, f] = i.dataset.f.split("."); w.terms[k][f] = i.value; if (w.step === 2) PX.rerender(); }));
+    $$("[data-f]", r).forEach((i) => (i.onchange = () => { const [k, f] = i.dataset.f.split("."); w.terms[k][f] = f === "dur" ? Math.max(0, +i.value || 0) : i.value; if (w.step === 2 || w.step === 1) PX.rerender(); }));
     $$("[data-on]", r).forEach((i) => (i.onchange = () => { w.terms[i.dataset.on].on = i.checked; PX.rerender(); }));
     $$("[data-own]", r).forEach((i) => (i.onchange = () => { const t = w.terms[i.dataset.own]; t.own = i.checked; if (t.own) { const c = calOf(w.subject, i.dataset.own, t.date); if (c) PX.CAL_FIELDS.forEach(([f]) => (t[f] = t[f] || c[f])); } PX.rerender(); }));
+    const sn = (k) => `Erwartungshorizont_${PX.subj(w.subject)?.short || "Fach"}_${k}_${(w.terms[k].date || "2027").slice(0, 4)}.pdf`;
+    $$("[data-ewhf]", r).forEach((i) => (i.onchange = () => { const f = i.files[0]; if (!f) return; if (!/\.pdf$/i.test(f.name)) return PX.toast("Kein PDF", "Es können nur PDF-Dateien hinterlegt werden.", "error"); w.terms[i.dataset.ewhf].ewh = f.name; PX.rerender(); PX.toast("Verschlüsselt hinterlegt", f.name); }));
+    $$("[data-ewhdemo]", r).forEach((b) => (b.onclick = () => { w.terms[b.dataset.ewhdemo].ewh = sn(b.dataset.ewhdemo); PX.rerender(); }));
+    $$("[data-ewhrm]", r).forEach((b) => (b.onclick = () => { w.terms[b.dataset.ewhrm].ewh = ""; PX.rerender(); }));
     const sub = $("#w-sub", r); if (sub) sub.onchange = () => { w.subject = sub.value; w.raster = ""; w.signset = null; w.partSigns = {}; PX.rerender(); };
     const ras = $("#w-ras", r); if (ras) ras.onchange = () => { w.raster = ras.value; w.partSigns = {}; PX.rerender(); };
     const kr = $("#w-kr", r); if (kr) kr.onchange = () => (w.guideline = kr.value);
@@ -145,10 +177,10 @@
       if (w.step === 1 && Object.values(w.terms).some((t) => t.on && !t.date)) return PX.toast("Prüfungstermin fehlt", "Bitte für jede gewählte Terminart ein Datum eintragen.", "warn");
       w.step++; PX.rerender(); };
     $("#w-cancel", r).onclick = async () => { if (await PX.confirm("Eingaben verwerfen?", "Die Prüfungsanlage wird abgebrochen. Nicht gespeicherte Eingaben gehen verloren.", "Verwerfen", true)) { wiz = null; PX.go("#/ibbw/pruefungen"); } };
-    $("#w-demo", r).onclick = () => { if (!w.subject) { w.subject = "vbwl"; w.signset = null; } Object.assign(w.terms.HT, { date: "2027-04-20", own: false }); Object.assign(w.terms.NT, { date: "2027-05-11", own: false }); Object.assign(w.terms.NNT, { date: "2027-06-08", own: false }); w.guideline = w.guideline || "kr-allg"; PX.rerender(); PX.toast("Demo-Werte eingesetzt", "Prüfungstermine des Szenarios; Korrekturzeiträume aus dem Korrekturkalender", "info"); };
+    $("#w-demo", r).onclick = () => { if (!w.subject) { w.subject = "vbwl"; w.signset = null; } Object.assign(w.terms.HT, { date: "2027-04-20", dur: 270, own: false }); Object.assign(w.terms.NT, { date: "2027-05-11", dur: 270, own: false }); Object.assign(w.terms.NNT, { date: "2027-06-08", dur: 270, own: false }); w.guideline = w.guideline || "kr-allg"; ["HT", "NT", "NNT"].forEach((k) => (w.terms[k].ewh = w.terms[k].ewh || `Erwartungshorizont_${PX.subj(w.subject)?.short}_${k}_2027.pdf`)); PX.rerender(); PX.toast("Demo-Werte eingesetzt", "Prüfungstermine des Szenarios; Korrekturzeiträume aus dem Korrekturkalender", "info"); };
     const save = (draft) => {
       const terms = Object.entries(w.terms).filter(([, t]) => t.on).map(([type, t]) => { const e = effTerm(w.subject, type, t); return { type, ...t, own: !e.cal, ekEnd: e.ekEnd, zkEnd: e.zkEnd, ebStart: e.ebStart, ebEnd: e.ebEnd }; });
-      const errs = terms.flatMap(termErrors); if (!w.raster) errs.push("Raster");
+      const errs = PX.examChecks({ subject: w.subject, raster: w.raster, signset: w.signset || [], partSigns: w.partSigns, terms }).filter((x) => x.level === "error");
       if (!draft && errs.length) return PX.toast("Speichern nicht möglich", "Pflichtangaben unvollständig – als Entwurf speichern?", "warn");
       const created = O().createExams({ subject: w.subject, raster: w.raster, guideline: w.guideline, zusatz: w.zusatz, signset: w.signset, partSigns: w.partSigns, terms });
       if (draft || errs.length) created.forEach((e) => (e.status = "entwurf"));
@@ -173,18 +205,18 @@
     const tabs = [["stamm", "Stammdaten"], ["grundlagen", "Bewertungsgrundlagen"], ["schulen", `Kursmappen (${kms.length})`]];
     const started = PX.S.now >= e.date;
     let body = "";
-    if (tab === "stamm") body = `<div class="card pad"><div class="grid2"><div>${PX.kv([["Prüfungsfach", esc(PX.subj(e.subject).name) + "<br><span class='xs muted'>" + esc(PX.subj(e.subject).form) + "</span>"], ["Terminart", PX.TYPE[e.type]], ["Prüfungstermin", `${PX.fmtDW(e.date)}, ${esc(e.time)}–${esc(e.end)} Uhr`], ["Status", e.status === "angelegt" ? PX.badge("angelegt", "green") : PX.badge("Entwurf", "yellowb")], ["Angelegt von", esc(PX.name(e.creator))]])}</div>
+    if (tab === "stamm") body = `<div class="card pad"><div class="grid2"><div>${PX.kv([["Prüfungsfach", esc(PX.subj(e.subject).name) + "<br><span class='xs muted'>" + esc(PX.subj(e.subject).form) + "</span>"], ["Terminart", PX.TYPE[e.type]], ["Prüfungstermin", `${PX.fmtDW(e.date)}, ${esc(e.time)} Uhr · Dauer ${e.duration || PX.durOf(e.time, e.end)} Minuten (Ende ${esc(e.end)} Uhr) ${PX.S.now < e.date ? `<button class="link xs" id="editdur">ändern</button>` : ""}`], ["Plausibilität", (() => { const ch = PX.examChecks({ subject: e.subject, raster: e.raster, signset: e.signset, partSigns: e.partSigns, terms: [{ type: e.type, date: e.date, time: e.time, dur: e.duration, ewh: e.ewh?.file, ekEnd: e.ekEnd, zkEnd: e.zkEnd, ebStart: e.ebStart, ebEnd: e.ebEnd }] }); return ch.length ? ch.map((x) => `<div class="xs issue ${x.level}">${icon(x.level === "error" ? "circle-x" : "triangle-alert")} ${esc(x.text)}</div>`).join("") : `<span class="xs issue ok">${icon("circle-check")} keine Auffälligkeiten</span>`; })()], ["Status", e.status === "angelegt" ? PX.badge("angelegt", "green") : PX.badge("Entwurf", "yellowb")], ["Angelegt von", esc(PX.name(e.creator))]])}</div>
       <div><h3>Korrekturzeiträume ${e.cal ? PX.badge("aus Korrekturkalender " + cal.form + " · " + PX.TYPE[cal.type], "cyan") : PX.badge("abweichend festgelegt", "yellowb")}</h3><div class="timeline">${[["Prüfung / Start EK", e.date], ["Ende Erstkorrektur", e.ekEnd], ["Ende Zweitkorrektur", e.zkEnd], ["Beginn Endbeurteilung", e.ebStart], ["Ende Endbeurteilung", e.ebEnd]].map(([l, d]) => `<div class="${d && d <= PX.S.now ? "past" : ""}"><b>${PX.fmtD(d)}</b><span>${l}</span></div>`).join("")}</div>
       <div class="row mt">${e.cal ? `<a class="btn sm" href="#/ibbw/kalender">${icon("calendar-range")} Kalender öffnen</a><button class="btn sm" id="editdates">${icon("pencil")} Abweichend festlegen</button>` : `<button class="btn sm" id="editdates">${icon("calendar-range")} Zeiträume bearbeiten</button>${cal ? `<button class="btn sm" id="attach">${icon("link")} Kalender wieder übernehmen</button>` : ""}`}</div></div></div></div>
       <div class="row mt"><button class="btn danger" id="delex">${icon("trash-2")} Prüfung löschen</button>${e.status === "entwurf" ? `<button class="btn primary" id="finex">${icon("check")} Entwurf vervollständigen und speichern</button>` : ""}</div>`;
     if (tab === "grundlagen") {
-      const tstart = e.date + "T" + e.time <= PX.S.now + "T23:59";
       body = `<div class="grid2"><div>${r ? PX.rasterPreview(r) + `<div class="row mt-s"><a class="btn sm" href="#/korr/test/${r.id}">${icon("flask-conical")} Testkorrektur mit diesem Raster</a></div>` : PX.empty("Kein Bewertungsraster zugeordnet")}
         <div class="card pad mt"><h3>${icon("book-text")} Korrekturrichtlinie</h3><p class="small">${e.guideline ? esc(PX.byId("guidelines", e.guideline).name) + ` <button class="link small" id="rmkr">Zuordnung entfernen</button>` : "keine zugeordnet (zulässig)"}</p></div></div>
-        <div><div class="card pad"><h3>${icon("file-up")} Erwartungshorizont</h3>
-        ${e.ewh ? `<div class="filechip">${icon("file-text")} <b>${esc(e.ewh.file)}</b><span class="xs muted">hochgeladen am ${PX.fmtD(e.ewh.date)}</span></div><div class="row mt-s"><button class="btn sm" id="ewh">${icon("upload")} Ersetzen</button><button class="btn sm danger" id="ewhdel">${icon("trash-2")} Löschen</button></div>`
-          : `<p class="small muted">Noch kein Erwartungshorizont. Upload als PDF frühestens ab Beginn der Prüfung (${PX.fmtDW(e.date)}, ${esc(e.time)} Uhr).</p><button class="btn primary sm" id="ewh" ${tstart ? "" : "disabled"}>${icon("upload")} PDF hochladen</button>${tstart ? "" : `<div class="xs muted mt-s">${icon("clock")} Demo-Zeit auf den Prüfungstag stellen (oben rechts).</div>`}`}
-        <div class="notice info mt">${icon("eye-off")}<div class="xs">Für Schulleitungsteams und Korrektor:innen sichtbar ab Ende der Prüfungszeit (${PX.fmtD(e.date)}, ${esc(e.end)} Uhr). Änderungen nach der Prüfung werden den Korrektor:innen als Systemnachricht mitgeteilt.</div></div></div>
+        <div><div class="card pad"><h3>${icon("lock-keyhole")} Erwartungshorizont</h3>
+        ${e.ewh ? `<div class="filechip">${icon(PX.ewhOpen(e) ? "file-text" : "lock-keyhole")} <b>${esc(e.ewh.file)}</b><span class="xs muted">hinterlegt am ${PX.fmtD(e.ewh.date)}</span></div><div class="small mt-s">${PX.ewhOpen(e) ? PX.badge("entschlüsselt", "green") : PX.badge("verschlüsselt", "dark")} ${esc(PX.ewhState(e))}</div>
+          ${PX.ewhOpen(e) ? `<div class="row mt-s"><button class="btn sm" id="ewhview">${icon("eye")} Ansehen</button><button class="btn sm" id="ewh">${icon("upload")} Ersetzen</button></div>` : `<div class="row mt-s"><button class="btn sm" id="ewh">${icon("upload")} Ersetzen</button><button class="btn sm danger" id="ewhdel">${icon("trash-2")} Löschen</button></div><p class="xs muted mt-s">${icon("lock")} Bis zum Prüfungsbeginn kann den Erwartungshorizont niemand öffnen – auch nicht das IBBW. Ersetzen ist möglich; die neue Datei wird ebenfalls verschlüsselt.</p>`}`
+          : `<div class="notice warn">${icon("triangle-alert")}<div class="small">Kein Erwartungshorizont hinterlegt. Er muss bei der Anlage verschlüsselt hinterlegt werden.</div></div><button class="btn primary sm mt-s" id="ewh">${icon("upload")} PDF verschlüsselt hinterlegen</button>`}
+        <div class="notice info mt">${icon("eye-off")}<div class="xs">Automatische Entschlüsselung mit Prüfungsbeginn (${PX.fmtD(e.date)}, ${esc(e.time)} Uhr). Für Schulleitungsteams und Korrektor:innen sichtbar ab Ende der Prüfungszeit (${esc(e.end)} Uhr). Änderungen nach der Prüfung werden den Korrektor:innen als Systemnachricht mitgeteilt.</div></div></div>
         <div class="card pad mt"><h3>${icon("pen-line")} Korrekturzeichen</h3>${signsEditor(e.subject, e.signset || [], e.partSigns || {}, r, started)}<div class="xs muted mt-s">${started ? icon("lock") + " Nach dem Prüfungstag nicht mehr änderbar." : "Änderungen werden sofort gespeichert und protokolliert."}</div></div></div></div>`;
     }
     if (tab === "schulen") body = kms.length ? `<div class="tablewrap"><table class="tbl"><thead><tr><th>Schule</th><th>Kursmappe</th><th>Prüflinge</th><th>Phase</th></tr></thead><tbody>${kms.map((k) => { const p = PX.phase(k); return `<tr><td>${esc(PX.orgName(k.school))}</td><td>${esc(k.name)}</td><td>${PX.activeMappen(k).length}</td><td>${PX.badge(p.label, p.kind)}</td></tr>`; }).join("")}</tbody></table></div><p class="xs muted mt-s">Das IBBW sieht nur den formalen Stand – keine personenbezogenen Daten.</p>` : PX.empty("Die Schulen haben noch keine Daten importiert.", "folder");
@@ -196,10 +228,12 @@
     if (PX.S.now < e.date) {
       bindSigns(root, e, () => { PX.audit("Korrekturzeichen der Prüfung geändert", PX.examLabel(e), `${e.signset.length} Zeichen`); PX.commit(); });
     }
-    b("#ewh", () => PX.modal({ title: "Erwartungshorizont hochladen", icon: "file-up", body: `<div class="dropzone" id="dz">${icon("upload", "xl")}<b>PDF-Datei hierher ziehen</b><span class="small muted">oder auswählen – nur PDF</span><input type="file" accept="application/pdf" id="fi"></div><p class="xs muted mt">Ein vorhandener Erwartungshorizont wird überschrieben.</p>`,
+    b("#ewh", () => PX.modal({ title: "Erwartungshorizont verschlüsselt hinterlegen", icon: "lock-keyhole", body: `<div class="dropzone" id="dz">${icon("upload", "xl")}<b>PDF-Datei hierher ziehen</b><span class="small muted">oder auswählen – nur PDF</span><input type="file" accept="application/pdf" id="fi"></div><p class="xs muted mt">Ein vorhandener Erwartungshorizont wird überschrieben.</p>`,
       foot: `<button class="btn" data-close>Abbrechen</button><button class="btn primary" data-demo>${icon("file-text")} Demo-PDF verwenden</button>`,
       onMount: (mm, close) => { const fi = $("#fi", mm); fi.onchange = () => { const f = fi.files[0]; if (!f) return; if (!/\.pdf$/i.test(f.name)) return PX.toast("Kein PDF", "Es können nur PDF-Dateien hochgeladen werden. Der bisherige Erwartungshorizont bleibt erhalten.", "error"); O().uploadEWH(e.id, f.name); close(); PX.commit(); PX.toast("Erwartungshorizont hochgeladen", esc(f.name)); }; $("[data-demo]", mm).onclick = () => { O().uploadEWH(e.id); close(); PX.commit(); PX.toast("Erwartungshorizont hochgeladen", esc(e.ewh.file)); }; } }));
-    b("#ewhdel", async () => { if (await PX.confirm("Erwartungshorizont löschen?", "Die Prüfung hat danach keinen Erwartungshorizont. Zugewiesene Korrektor:innen erhalten eine Systemnachricht.", "Löschen", true)) { PX.audit("Erwartungshorizont gelöscht", PX.examLabel(e)); e.ewh = null; PX.commit(); } });
+    b("#ewhdel", async () => { if (await PX.confirm("Erwartungshorizont löschen?", "Die Prüfung hat danach keinen Erwartungshorizont.", "Löschen", true)) { O().removeEWH(e.id); PX.commit(); } });
+    b("#ewhview", () => PX.showEWH(e));
+    b("#editdur", () => PX.modal({ title: "Beginn und Dauer", icon: "clock", body: `<div class="grid2"><div class="field"><label class="lbl">Beginn</label><input type="time" class="input" id="dt" value="${e.time}"></div><div class="field"><label class="lbl">Dauer (Minuten)</label><input type="number" class="input" id="dd" min="30" max="480" step="5" value="${e.duration}"></div></div>`, foot: `<button class="btn" data-close>Abbrechen</button><button class="btn primary" data-ok>Speichern</button>`, onMount: (mm, close) => { $("[data-ok]", mm).onclick = () => { const d = +$("#dd", mm).value; if (!(d > 0)) return; e.time = $("#dt", mm).value; e.duration = d; e.end = PX.endTime(e.time, d); PX.audit("Prüfungszeit geändert", PX.examLabel(e), `${e.time} Uhr, ${d} Minuten (Ende ${e.end})`); close(); PX.commit(); }; } }));
     b("#rmkr", async () => { if (await PX.confirm("Zuordnung entfernen?", "Die Korrekturrichtlinie wird nicht gelöscht, nur von dieser Prüfung gelöst.", "Entfernen")) { e.guideline = ""; PX.audit("Korrekturrichtlinie entfernt", PX.examLabel(e)); PX.commit(); } });
     b("#delex", async () => { const used = PX.S.kms.some((k) => k.exam === e.id); if (used) return PX.toast("Löschen nicht möglich", "Für diese Prüfung liegen bereits Kursmappen vor.", "warn"); if (await PX.confirm("Prüfung löschen?", `„${esc(PX.examLabel(e))}“ wird unwiderruflich gelöscht.`, "Löschen", true)) { PX.S.exams = PX.S.exams.filter((x) => x.id !== e.id); PX.audit("Prüfung gelöscht", PX.examLabel(e)); PX.commit(); PX.go("#/ibbw/pruefungen"); } });
     b("#finex", () => { if (termErrors(e).length || !e.raster) return PX.toast("Noch unvollständig", termErrors(e).join(", ") || "Bewertungsraster fehlt", "warn"); e.status = "angelegt"; PX.audit("Prüfung vervollständigt", PX.examLabel(e)); PX.commit(); });
@@ -278,7 +312,17 @@
     });
     r.nodes.forEach((n) => { if (!String(n.no || "").trim()) E("Aufgabe ohne Nummer"); });
     (r.groups || []).forEach((g) => { if (g.options.length < 2) W(`${g.label}: weniger als zwei Optionen`); if (g.pick < 1 || g.pick > g.options.length) E(`${g.label}: Anzahl „${g.pick} aus ${g.options.length}“ ungültig`); });
-    if (r.combine === "sum") { const k = PX.KEYS[r.key]; if (!k) E("Notenschlüssel für die Gesamtsumme zuordnen"); else if (k.max !== PX.maxBE(r)) W(`Notenschlüssel für ${k.max} BE, erreichbar sind ${PX.maxBE(r)} BE`); }
+    if (r.combine === "sum") {
+      const k = PX.KEYS[r.key]; if (!k) E("Notenschlüssel für die Gesamtsumme zuordnen"); else if (k.max !== PX.maxBE(r)) E(`Notenschlüssel passt nicht: ${k.name} (${k.max} BE), erreichbar sind ${PX.maxBE(r)} BE`);
+      r.parts.filter((p) => !["be", "extern"].includes(p.scoring)).forEach((p) => E(`${p.name}: Bewertungsart „${PX.SCORING_SHORT[p.scoring]}“ kann nicht zur BE-Summe addiert werden – Kombination „gewichten“ oder „Mittelwert“ wählen`));
+      if (r.form && k && !String(r.key).startsWith(r.form.toLowerCase())) W(`Notenschlüssel „${k.name}“ gehört nicht zur Schulform ${r.form}`);
+    }
+    r.parts.filter((p) => p.scoring === "be" && r.combine !== "sum" && p.key).forEach((p) => { const k = PX.KEYS[p.key]; if (k && k.max !== PX.partMax(r, p)) E(`${p.name}: Notenschlüssel ${k.max} BE, erreichbar sind ${PX.partMax(r, p)} BE`); });
+    if (r.bonus?.on) { if (!(+r.bonus.max > 0)) E("Zusatz-BE freigeschaltet, aber keine BE angegeben"); if (r.combine !== "sum") E("Zusatz-BE sind nur bei einer BE-Summe möglich"); else if (+r.bonus.max > 0.15 * PX.maxBE(r)) W(`Zusatz-BE (${r.bonus.max}) sind mehr als 15 % der erreichbaren BE`); }
+    if (r.combine === "weighted") r.parts.forEach((p) => { if (!(+p.weight > 0)) E(`${p.name}: Gewicht 0 %`); });
+    (r.caps || []).forEach((cp) => { if (!r.parts.some((p) => p.id === cp.part) || cp.nodes.some((id) => !r.nodes.some((n) => n.id === id))) E(`Kappung „${cp.label}“ verweist auf nicht vorhandene Aufgaben`); if (cp.max > 15 || cp.max < 0) E(`Kappung „${cp.label}“: ungültiger Höchstwert`); });
+    (r.groups || []).forEach((g) => { const ms = new Set(g.options.map((id) => { const n = r.nodes.find((x) => x.id === id); return n ? PX.nodeMax(r, n) : 0; })); const p = PX.partOf(r, r.nodes.find((x) => x.id === g.options[0]) || {}); if (p && p.scoring !== "np" && ms.size > 1) W(`${g.label}: Optionen mit unterschiedlichen BE (${[...ms].join(" / ")}) – Maximum hängt von der Wahl ab`); if (g.options.some((id) => !r.nodes.some((n) => n.id === id))) E(`${g.label}: verweist auf gelöschte Aufgaben`); });
+    if (r.gutachten?.on && (r.gutachten.bausteine || []).some((b) => !String(b.text || "").trim())) W("Gutachten: leere Textbausteine");
     if (r.combine === "weighted") { const s = PX.sum(r.parts.map((p) => +p.weight || 0)); if (Math.abs(s - 100) > 0.01) E(`Gewichte der Prüfungsteile ergeben ${PX.fmtNP(s)} % statt 100 %`); }
     r.parts.filter((p) => p.scoring === "np").forEach((p) => { const check = (pid) => { const ks = PX.kids(r, pid, p.id).filter((k) => !PX.groupOfNode(r, k.id)); if (ks.length > 1 && ks.some((k) => k.weight != null)) { const s = PX.sum(ks.map((k) => +(k.weight ?? 0))); if (Math.abs(s - 1) > 0.01) W(`${p.name}${pid ? " · " + r.nodes.find((x) => x.id === pid)?.no : ""}: Gewichte ergeben ${PX.fmtNP(s * 100)} %`); } ks.forEach((k) => check(k.id)); }; check(null); });
     if (r.gutachten?.on && !(r.gutachten.sections || []).length) E("Gutachten: mindestens einen Gliederungspunkt anlegen");
@@ -358,7 +402,8 @@
           <div class="field"><label class="lbl">Rundung Ø Erst-/Zweitkorrektur</label><select class="select" id="rfi" ${dis}>${opt(PX.ROUND, r.round?.final || "ceil")}</select></div>
           ${hasExt ? `<div class="field"><label class="lbl">Rundung nach Einrechnung nicht korrekturrelevanter Teile</label><select class="select" id="rwe" ${dis}>${opt(PX.ROUND, r.round?.withExtern || "round")}</select></div>` : ""}
           <div class="field"><label class="lbl">Abzug Sprachrichtigkeit / Form (max.)</label><select class="select" id="rabz" ${dis}>${[0, 1, 2].map((v) => `<option value="${v}" ${(r.abzugMax ?? 2) === v ? "selected" : ""}>${v} NP</option>`).join("")}</select></div>
-          ${r.combine === "sum" ? `<div class="field"><label class="lbl">Zusatz-BE für hervorragende Lösungen (max.)</label><input class="input" type="number" min="0" id="rbon" value="${r.bonus?.max || 0}" ${dis}></div><div class="field"><label class="checkbox mt"><input type="checkbox" id="rhalf" ${r.beHalf ? "checked" : ""} ${dis}> halbe BE bei Teilaufgaben, Summe aufrunden</label></div>` : ""}</div>
+          <div class="field"><label class="checkbox"><input type="checkbox" id="rbonon" ${r.bonus?.on ? "checked" : ""} ${dis || (r.combine !== "sum" ? "disabled" : "")}> Zusatz-BE für besonders gute Lösungen freischalten</label>${r.bonus?.on ? `<div class="row mt-s"><label class="small" for="rbon">bis zu</label><input class="input sm num" style="width:80px" type="number" min="1" id="rbon" value="${r.bonus?.max || 0}" ${dis}><span class="small">BE (zusätzlich zum Abzug für Sprachrichtigkeit/Form)</span></div>` : `<div class="xs muted">${r.combine === "sum" ? "Standard: nicht freigeschaltet" : "nur bei BE-Summe möglich"}</div>`}</div>
+          ${r.combine === "sum" ? `<div class="field"><label class="checkbox mt"><input type="checkbox" id="rhalf" ${r.beHalf ? "checked" : ""} ${dis}> halbe BE bei Teilaufgaben, Summe aufrunden</label></div>` : ""}</div>
           <h4 class="mt">Kappungen</h4>${(r.caps || []).map((cp, i) => `<div class="small row">${icon("triangle-alert")} ${esc(cp.label)} ${ro ? "" : `<button class="link xs" data-rmcap="${i}">entfernen</button>`}</div>`).join("") || `<p class="xs muted">keine</p>`}
           ${ro ? "" : `<button class="btn sm mt-s" id="addcap">${icon("plus")} Kappung anlegen</button>`}</div>
       </div><div>
@@ -387,7 +432,7 @@
     on("#rcomb", (x) => { r.combine = x.value; if (x.value === "weighted" && PX.sum(r.parts.map((p) => +p.weight || 0)) === 0) r.parts.forEach((p) => (p.weight = Math.round(100 / r.parts.length))); });
     on("#rkey", (x) => (r.key = x.value)); r.round = r.round || {};
     on("#rst", (x) => (r.round.stage = x.value)); on("#rfi", (x) => (r.round.final = x.value)); on("#rwe", (x) => (r.round.withExtern = x.value));
-    on("#rabz", (x) => (r.abzugMax = +x.value)); on("#rbon", (x) => (r.bonus = { max: Math.max(0, +x.value || 0) })); on("#rhalf", (x) => (r.beHalf = x.checked));
+    on("#rabz", (x) => (r.abzugMax = +x.value)); on("#rbon", (x) => (r.bonus = { ...(r.bonus || {}), max: Math.max(0, +x.value || 0) })); on("#rbonon", (x) => (r.bonus = { on: x.checked, max: r.bonus?.max || (x.checked ? 5 : 0) })); on("#rhalf", (x) => (r.beHalf = x.checked));
     $$("[data-p]", root).forEach((i) => (i.onchange = () => { const [id, f] = i.dataset.p.split("|"); const p = r.parts.find((x) => x.id === id); p[f] = f === "weight" ? +i.value : i.value; ch(); }));
     $$("[data-rmp]", root).forEach((b) => (b.onclick = async () => { const p = r.parts.find((x) => x.id === b.dataset.rmp); if (!(await PX.confirm("Prüfungsteil löschen?", `„${esc(p.name)}“ mit allen Aufgaben wird entfernt.`, "Löschen", true))) return; const ids = new Set(r.nodes.filter((n) => n.part === p.id).map((n) => n.id)); r.nodes = r.nodes.filter((n) => !ids.has(n.id)); r.groups = r.groups.filter((g) => !g.options.some((o) => ids.has(o))); r.parts = r.parts.filter((x) => x !== p); ch(); }));
     const ap = $("#addp", root); if (ap) ap.onclick = () => { const id = "p" + Date.now().toString(36); r.parts.push({ id, name: "Teil " + (r.parts.length + 1), scoring: "be", weight: 0 }); r.nodes.push({ id: PX.uid("n-"), part: id, parent: null, no: "1", title: "", be: 10 }); ch(); };

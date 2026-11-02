@@ -13,9 +13,9 @@
     ["pruefung", "Prüfung VBWL 2027 angelegt (Haupt-, Nach-, Nachnachtermin; Korrekturkalender BG)", () => as("r.albrecht", () => {
       const r = O().duplicateRaster("rs-vbwl-26", "VBWL – Haupttermin 2027", 2027); O().releaseRaster(r.id);
       O().createExams({ subject: "vbwl", raster: r.id, guideline: "kr-allg", zusatz: false, terms: [
-        { type: "HT", date: "2027-04-20", time: "08:30", end: "13:00" },
-        { type: "NT", date: "2027-05-11", time: "08:30", end: "13:00" },
-        { type: "NNT", date: "2027-06-08", time: "08:30", end: "13:00" },
+        { type: "HT", date: "2027-04-20", time: "08:30", dur: 270, ewh: "Erwartungshorizont_VBWL_HT_2027.pdf" },
+        { type: "NT", date: "2027-05-11", time: "08:30", dur: 270, ewh: "Erwartungshorizont_VBWL_NT_2027.pdf" },
+        { type: "NNT", date: "2027-06-08", time: "08:30", dur: 270, ewh: "Erwartungshorizont_VBWL_NNT_2027.pdf" },
       ] });
     })],
     ["import", "Daten importiert (ASV), Kursmappen freigegeben", () => {
@@ -37,9 +37,9 @@
       });
     }],
     ["pruefungstag", "Prüfungstag vorbereitet und durchgeführt", () => {
-      const ex = PX.mainExam(); PX.S.now = ex.date;
-      as("r.albrecht", () => O().uploadEWH(ex.id));
+      const ex = PX.mainExam(); PX.S.now = PX.addDays(ex.date, -7);
       PX.S.kms.filter((k) => k.exam === ex.id).forEach((k) => as(sltFor(k.school), () => O().genCovers(k.id)));
+      PX.S.now = ex.date;
       const mia = PX.S.mappen.find((m) => m.student === "afs-0416"); const eli = PX.S.mappen.find((m) => m.student === "afs-0417");
       as("m.haldenwang", () => { O().setNTA(mia.id, "Zeitverlängerung um 25 % (Bescheid vom 12.02.2027)"); O().markAbsent(eli.id, "entschuldigt"); O().registerNT(eli.id); });
     }],

@@ -4,7 +4,7 @@
   const PX = window.PX; const { esc, icon, $, $$ } = PX; const O = () => PX.ops;
   const need = ["lk"];
   const me = () => PX.me();
-  const kmTitle = (km, stage) => (stage === "ek" ? `${km.name} · ${PX.orgShort(km.school)}` : `Kursmappe ${km.id.replace(/[^a-z0-9]/gi, "").slice(-4).toUpperCase()} (anonymisiert)`);
+  const kmTitle = (km, stage) => (stage === "ek" ? `${km.name} · ${PX.orgShort(km.school)}` : `${PX.kmPseudo(km)} (pseudonymisiert)`);
   const mTitle = (m, stage) => (stage === "ek" ? `${m.last}, ${m.first}` : PX.pseudo(m));
   const stageEnd = (ex, st) => (st === "ek" ? ex.ekEnd : st === "zk" ? ex.zkEnd : ex.ebEnd);
   const relevant = (km, st) => (st === "eb" ? PX.activeMappen(km).filter((m) => m.ebRequired) : PX.activeMappen(km));
@@ -41,7 +41,7 @@
     const anon = st !== "ek";
     return `${PX.pagehead(kmTitle(km, st), `${esc(PX.examLabel(ex))} · ${PX.STAGE[st]} · Frist ${PX.fmtD(stageEnd(ex, st))}`, `<a class="btn" href="#/korr">${icon("arrow-left")} Meine Korrekturen</a>`)}
       ${!open ? `<div class="notice ${st === "eb" && km.stages.zk.sltOk ? "warn" : "info"}">${icon("lock")}<div>${st === "eb" && km.stages.zk.sltOk ? `<b>Die Endbeurteilung ist erst ab ${PX.fmtDW(ex.ebStart)} möglich.</b><br><span class="small">So beginnt die Endbeurteilung landesweit gleichzeitig, nachdem alle Zweitkorrekturen abgeschlossen sind. Stellen Sie die Demo-Zeit oben rechts auf „Beginn Endbeurteilung“.</span>` : "Die Unterlagen sind für diese Korrekturstufe noch nicht freigegeben."}</div></div>` : ""}
-      <div class="grid3"><div class="card pad"><h3>${icon("book-text")} Bewertungsgrundlagen</h3>${PX.examPassed(ex) ? `<button class="doclink" data-ewh>${icon("file-text")} Erwartungshorizont${ex.ewh ? "" : " (noch nicht hochgeladen)"}</button><button class="doclink" data-raster>${icon("table")} Bewertungsraster</button>${ex.guideline ? `<button class="doclink" data-kr>${icon("book-text")} ${esc(PX.byId("guidelines", ex.guideline).name)}</button>` : ""}<div class="signs mini mt-s">${PX.signsFor(ex.subject).map((z) => `<span class="sign static" title="${esc(z.meaning)}">${esc(z.code)}</span>`).join("")}</div>` : `<p class="small muted">${icon("eye-off")} Sichtbar nach Ende der Prüfungszeit.</p>`}</div>
+      <div class="grid3"><div class="card pad"><h3>${icon("book-text")} Bewertungsgrundlagen</h3><p class="xs muted">${icon("lock")} Landesweit einheitlich vom IBBW vorgegeben – eigene Bewertungsraster können nicht hochgeladen werden.</p>${PX.examPassed(ex) ? `<button class="doclink" data-ewh>${icon("file-text")} Erwartungshorizont${ex.ewh ? "" : " (noch nicht hochgeladen)"}</button><button class="doclink" data-raster>${icon("table")} Bewertungsraster</button>${ex.guideline ? `<button class="doclink" data-kr>${icon("book-text")} ${esc(PX.byId("guidelines", ex.guideline).name)}</button>` : ""}<div class="signs mini mt-s">${PX.signsFor(ex.subject).map((z) => `<span class="sign static" title="${esc(z.meaning)}">${esc(z.code)}</span>`).join("")}</div>` : `<p class="small muted">${icon("eye-off")} Sichtbar nach Ende der Prüfungszeit.</p>`}</div>
         <div class="card pad"><h3>${icon("info")} Ablauf</h3><p class="small">${st === "ek" ? "Unterlagen sichten (Vollständigkeit, Lesbarkeit), korrigieren, Raster ausfüllen, personenbezogene Daten schwärzen. Mehrere Erstkorrektor:innen können parallel verschiedene Mappen bearbeiten." : st === "zk" ? `Anonymisierte Ansicht: Kopfzeile und Deckblatt sind ausgeblendet. Korrekturzeichen der Erstkorrektur sind sichtbar; wie viele eigene Zeichen Sie setzen, entscheiden Sie. Punkte und Gutachten der Erstkorrektur sind nicht sichtbar. Hinweise der Erstkorrektur werden angezeigt.` : `Pflichtmappen (Abweichung > 3 NP${PX.examForm(ex) === "AG" ? ", Stichprobe 2 je Kurs" : ""}) sind hervorgehoben. Sie sehen Berichte und Raster der Erst- und Zweitkorrektur und können weitere Mappen freiwillig korrigieren.`}</p></div>
         <div class="card pad"><h3>${icon("clipboard-check")} Abschluss</h3>${iDone ? `<p class="small">${icon("circle-check")} Sie haben den Abschluss am ${PX.fmtD(km.stages[st].at || PX.S.now)} bestätigt.${ss.sltOk ? " Die Schulleitung hat bestätigt." : " Die Schulleitung wurde informiert."}</p>` : `<p class="small">${rel.filter((m) => m.corr[st]?.state === "fertig").length} von ${rel.length} ${st === "eb" ? "Pflichtmappen" : "Mappen"} korrigiert.</p>
           <button class="btn primary" id="confkm" ${open && allDone ? "" : "disabled"}>${icon("check")} Kursmappenabschluss bestätigen</button>${st === "eb" && !rel.length ? `<div class="xs muted mt-s">Keine Pflichtmappe – Abschluss ohne Korrektur möglich.</div>` : ""}`}</div></div>
@@ -81,12 +81,13 @@
   PX.showEWH = function (ex) {
     const r = PX.raster(ex);
     if (!ex.ewh) return PX.toast("Kein Erwartungshorizont", "Für diese Prüfung liegt (noch) kein Erwartungshorizont vor. Eine Korrektur ohne Erwartungshorizont ist zulässig.", "info");
+    if (!PX.ewhOpen(ex)) return PX.toast("Erwartungshorizont verschlüsselt", PX.ewhState(ex), "info");
     const tops = r.nodes.filter((n) => !n.parent && PX.partOf(r, n)?.scoring !== "extern");
-    PX.modal({ title: "Erwartungshorizont", size: "wide", icon: "file-text", body: `<div class="docpreview"><div class="xs muted">${esc(ex.ewh.file)} · hochgeladen ${PX.fmtD(ex.ewh.date)}</div>${tops.map((t) => `<div class="horizont-row"><div><b>${esc(t.no)} ${esc(t.title)}</b><p class="small">Erwartet wird eine fachlich korrekte, strukturierte Darstellung mit Fachbegriffen; alternative richtige Lösungen sind gleichwertig.</p></div><div><b>${PX.partOf(r, t).scoring === "np" ? "NP" : PX.partOf(r, t).scoring === "fehler" ? "Fehlerzahl" : PX.nodeMax(r, t) + " BE"}</b></div></div>`).join("")}</div>` });
+    PX.modal({ title: "Erwartungshorizont", size: "wide", icon: "file-text", body: `<div class="docpreview"><div class="xs muted">${esc(ex.ewh.file)} · ${esc(PX.ewhState(ex))}</div>${tops.map((t) => `<div class="horizont-row"><div><b>${esc(t.no)} ${esc(t.title)}</b><p class="small">Erwartet wird eine fachlich korrekte, strukturierte Darstellung mit Fachbegriffen; alternative richtige Lösungen sind gleichwertig.</p></div><div><b>${PX.partOf(r, t).scoring === "np" ? "NP" : PX.partOf(r, t).scoring === "fehler" ? "Fehlerzahl" : PX.nodeMax(r, t) + " BE"}</b></div></div>`).join("")}</div>` });
   };
 
   // ---------- Testkorrektur (jedes Bewertungsraster im Korrekturmodus ausprobieren) ----------
-  PX.route(/^korr\/test\/([^/]+)$/, (mm) => ({ title: "Testkorrektur", shell: "staff", need: ["lk", "ibbw"], render: () => {
+  PX.route(/^korr\/test\/([^/]+)$/, (mm) => ({ title: "Testkorrektur", shell: "staff", need: ["ibbw"], render: () => {
     const r = PX.byId("rasters", mm[1]); if (!r) return PX.empty("Raster nicht gefunden");
     const km = PX.sandboxFor(r.id); const ex = PX.exam(km.exam); const list = PX.mappenOf(km);
     const cell = (m, st) => { const c = m.corr[st]; return `<td>${c?.state === "fertig" ? `<b>${PX.fmtNP(c.np)} NP</b>` : c?.state === "in_bearbeitung" ? PX.badge("in Bearbeitung", "yellowb") : "–"} <a class="btn sm" href="#/korr/m/${m.id}/${st}">${icon(c?.state === "fertig" ? "eye" : "pen-line")} ${PX.STAGE_SHORT[st]}</a></td>`; };
@@ -105,12 +106,12 @@
   } }));
 
   // ---------- Korrekturmodus ----------
-  const K = { tool: "sign", sign: null, part: null, page: 0, sel: null, undo: [], tab: "bew", zoom: 1, mid: null, gsec: 0, suggest: true, recent: [], bcat: "" };
+  const K = { hstyle: "single", snap: true, tool: "sign", sign: null, part: null, page: 0, sel: null, undo: [], tab: "bew", zoom: 1, mid: null, gsec: 0, suggest: true, recent: [], bcat: "" };
   PX.route(/^korr\/m\/([^/]+)\/(ek|zk|eb)$/, (mm) => {
     const m = PX.mappe(mm[1]); const st = mm[2];
     if (K.mid !== mm[1] + st) { Object.assign(K, { page: 0, sel: null, undo: [], tab: "bew", mid: mm[1] + st, gsec: 0 }); }
     const sb = !!(m && PX.km(m.km)?.sandbox);
-    return { title: sb ? "Testkorrektur" : "Korrektur", shell: "staff", need: sb ? ["lk", "ibbw"] : need, render: () => renderMode(m, st), mount: (r) => mountMode(r, m, st) };
+    return { title: sb ? "Testkorrektur" : "Korrektur", shell: "staff", need: sb ? ["ibbw"] : need, render: () => renderMode(m, st), mount: (r) => mountMode(r, m, st) };
   });
   const hasAccess = (km, st) => km?.sandbox || PX.assignments(me().id).some((a) => a.km.id === km.id && a.stage === st);
   function canEdit(m, st) {
@@ -130,6 +131,16 @@
     return out;
   }
   const korrParts = (r) => r.parts.filter((p) => p.scoring !== "extern");
+  // ---------- Sprungmarken: je Teilaufgabe die Seite (und Zeile), auf der bewertet wurde ----------
+  const anchorList = (m, r) => Object.entries(m.anchors || {}).map(([id, a]) => ({ ...a, id, no: r.nodes.find((n) => n.id === id)?.no || "?" })).filter((a) => a.page);
+  function anchorBar(m, r, km, pages, page) {
+    const list = anchorList(m, r); const pIdx = (pid) => pages.findIndex((p) => p.id === pid);
+    const leaves = PX.activeLeaves(r, m.corr.ek || m.corr.zk || {}, km).filter((l) => PX.partOf(r, l).scoring !== "extern");
+    const here = list.filter((a) => a.page === page?.id).sort((a, b) => (a.y || 0) - (b.y || 0));
+    return `<div class="anchorbar">${icon("bookmark")} <span class="xs muted">Sprungmarken</span>${leaves.length ? `<select class="select sm" id="jumpsel" style="width:auto"><option value="">Springen zu Teilaufgabe …</option>${leaves.map((l) => { const a = m.anchors?.[l.id]; return `<option value="${l.id}" ${a ? "" : "disabled"}>${esc(l.no)}${a ? " · Seite " + (pIdx(a.page) + 1) : " · keine Sprungmarke"}</option>`; }).join("")}</select>` : ""}
+      <span class="xs muted">Auf dieser Seite:</span>${here.length ? here.map((a) => `<button class="chip ${a.id === PX.ui.taskFocus ? "here" : ""}" data-jump="${a.id}" title="Zu ${esc(a.no)} springen">${esc(a.no)}</button>`).join("") : `<span class="xs muted">keine</span>`}
+      <span class="grow"></span><span class="xs muted">entstehen automatisch beim Eintragen der Punkte · ${icon("bookmark")} im Bewertungsbereich setzt/springt</span></div>`;
+  }
   function renderMode(m, st) {
     if (!m) return PX.empty("Mappe nicht gefunden");
     const km = PX.km(m.km); const ex = PX.exam(km.exam); const r = PX.raster(ex);
@@ -163,19 +174,20 @@
       ${m.nta ? `<div class="notice peach">${icon("scale")}<div class="small"><b>Nachteilsausgleich:</b> ${esc(m.nta)}</div></div>` : ""}
       ${st !== "ek" && hintEK ? `<div class="notice info">${icon("message-square")}<div class="small"><b>Hinweis der Erstkorrektur (anonym):</b> ${esc(hintEK)}</div></div>` : ""}
       <div class="kwrap">
-        <aside class="thumbs">${pages.map((p, i) => `<button class="thumb ${i === K.page ? "on" : ""}" data-pg="${i}"><span class="tn">${i + 1}</span>${PX.pageHtml(m, p, { small: true, anon })}<span class="xs">${p.kind === "deckblatt" ? "Deckblatt" : p.kind === "konzept" ? "Konzept" : "Blatt " + p.n}</span></button>${st === "ek" && edit && p.kind !== "deckblatt" && !km.sandbox ? `<div class="thumbact"><button class="iconbtn sm" data-trot="${p.id}" title="Seite drehen">${icon("rotate-cw")}</button><button class="iconbtn sm" data-tmv="${p.id}|-1" title="nach vorn">${icon("chevron-up")}</button><button class="iconbtn sm" data-tmv="${p.id}|1" title="nach hinten">${icon("chevron-down")}</button></div>` : ""}`).join("")}</aside>
+        <aside class="thumbs">${pages.map((p, i) => `<button class="thumb ${i === K.page ? "on" : ""}" data-pg="${i}"><span class="tn">${i + 1}</span>${PX.pageHtml(m, p, { small: true, anon })}${(() => { const n = anchorList(m, r).filter((a) => a.page === p.id).length; return n ? `<span class="ancn" title="Sprungmarken auf dieser Seite">${icon("bookmark")}${n}</span>` : ""; })()}<span class="xs">${p.kind === "deckblatt" ? "Deckblatt" : p.kind === "konzept" ? "Konzept" : "Blatt " + p.n}</span></button>${st === "ek" && edit && p.kind !== "deckblatt" && !km.sandbox ? `<div class="thumbact"><button class="iconbtn sm" data-trot="${p.id}" title="Seite drehen">${icon("rotate-cw")}</button><button class="iconbtn sm" data-tmv="${p.id}|-1" title="nach vorn">${icon("chevron-up")}</button><button class="iconbtn sm" data-tmv="${p.id}|1" title="nach hinten">${icon("chevron-down")}</button></div>` : ""}`).join("")}</aside>
         <section class="kdoc2">
-          ${edit ? `<div class="ktools2"><div class="toolrow">${toolBtn("select", "mouse-pointer-2", "", "Auswählen / Löschen")}${toolBtn("sign", "stamp", "Zeichen", "Korrekturzeichen setzen")}${toolBtn("line", "underline", "Unterstreichen", "Textstelle unterstreichen – Zeichen wird vorgeschlagen")}${toolBtn("pen", "pen-tool", "Stift", "Freihand markieren – Zeichen wird vorgeschlagen")}${toolBtn("text", "message-square", "", "Randbemerkung")}${st === "ek" ? toolBtn("redact", "square", "Schwärzen", "Personenbezogene Daten schwärzen") : ""}${toolBtn("note", "sticky-note", "Notiz", "Private Notiz")}
+          ${edit ? `<div class="ktools2"><div class="toolrow">${toolBtn("select", "mouse-pointer-2", "", "Auswählen (S) – Markierung anklicken, Entf löscht")}${toolBtn("sign", "stamp", "Zeichen", "Korrekturzeichen setzen – erscheint am Rand")}${toolBtn("hline", "underline", "Unterstreichen", "Unterstreichen (U) – einfach, doppelt, gekringelt")}<select class="select sm hstyle-sel" id="hstyle" title="Art der Unterstreichung">${[["single", "einfach"], ["double", "doppelt"], ["wavy", "gekringelt"]].map(([k, l]) => `<option value="${k}" ${K.hstyle === k ? "selected" : ""}>${l}</option>`).join("")}</select>${toolBtn("vline", "move-vertical", "Vertikal", "Vertikaler Randstrich für einen ganzen Bereich (V)")}${toolBtn("pen", "pen-tool", "Stift", "Stift (P): Linien und handschriftliche Korrekturzeichen werden erkannt")}${toolBtn("eraser", "eraser", "", "Radierer (E)")}${toolBtn("text", "message-square", "", "Randbemerkung")}${st === "ek" ? toolBtn("redact", "square", "Schwärzen", "Personenbezogene Daten schwärzen") : ""}${toolBtn("note", "sticky-note", "Notiz", "Private Notiz")}
               ${kp.length > 1 ? `<span class="sepv"></span><label class="xs muted" for="kpart">Prüfungsteil</label><select class="select sm" id="kpart" style="width:auto">${kp.map((p) => `<option value="${p.id}" ${K.part === p.id ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select>` : ""}</div>
-            <div class="toolrow signrow">${signs.map((z) => `<button class="sign ${K.sign === z.id && K.tool !== "select" ? "on " + st : ""}" data-sign="${z.id}" title="${esc(z.meaning)}${z.weight != null ? ` · Gewicht ${PX.fmtNP(z.weight)}` : ""}${z.count ? " · Anzahl wird abgefragt" : ""}">${esc(z.code)}${z.weight ? `<sub>${z.weight === 0.25 ? "¼" : z.weight === 0.5 ? "½" : PX.fmtNP(z.weight)}</sub>` : z.count ? "<sub>n</sub>" : ""}</button>`).join("")}</div>
-            <div class="row between"><div class="xs muted">${selMark && (selMark.kind === "line" || selMark.kind === "pen") ? `Markierung ausgewählt – Zeichen in der Leiste anklicken, um es zuzuordnen, oder Entf zum Löschen.` : K.tool === "sign" ? `Klicken Sie auf die Seite, um „${esc(curSign?.code || "")}“ (${esc(curSign?.meaning || "")}) zu setzen.` : K.tool === "line" ? "Mit gedrückter Maustaste unter der Textstelle entlangziehen. Anschließend wird ein Korrekturzeichen vorgeschlagen." : K.tool === "pen" ? "Freihand markieren (z. B. einkreisen). Anschließend wird ein Korrekturzeichen vorgeschlagen." : K.tool === "redact" ? "Rechteck über personenbezogene Daten ziehen. Für Zweitkorrektur und Endbeurteilung nicht mehr lesbar." : K.tool === "note" ? "Notiz an eine Position setzen – nur für Sie sichtbar, nicht in Berichten oder Einsichtnahme. Keine personenbezogenen Daten oder Punkte." : K.tool === "text" ? "Klicken Sie auf die Seite und geben Sie eine Randbemerkung ein." : "Markierung anklicken und mit Entf löschen."}</div>
-              ${K.tool === "line" || K.tool === "pen" ? `<label class="xs nowrap"><input type="checkbox" id="ksug" ${K.suggest ? "checked" : ""}> Zeichen vorschlagen</label>` : ""}</div></div>` : ""}
+            <div class="toolrow signrow">${signs.map((z) => `<button class="sign ${K.sign === z.id && K.tool === "sign" ? "on " + st : ""}" data-sign="${z.id}" title="${esc(z.meaning)}${z.weight != null ? ` · Gewicht ${PX.fmtNP(z.weight)}` : ""}${z.count ? " · Anzahl wird abgefragt" : ""}${PX.ink.canWrite(z.code) ? " · per Stift schreibbar" : ""}">${esc(z.code)}${z.weight ? `<sub>${z.weight === 0.25 ? "¼" : z.weight === 0.5 ? "½" : PX.fmtNP(z.weight)}</sub>` : z.count ? "<sub>n</sub>" : ""}</button>`).join("")}</div>
+            <div class="row between wrap"><div class="xs muted">${selMark?.kind === "sign" ? "Zeichen ausgewählt – anderes Zeichen in der Leiste anklicken, um es zu ändern; Entf löscht." : K.tool === "sign" ? `In den Text klicken: „${esc(curSign?.code || "")}“ (${esc(curSign?.meaning || "")}) erscheint am ${st === "ek" ? "rechten" : st === "zk" ? "linken" : "linken äußeren"} Rand.` : K.tool === "hline" ? `Unter der Textstelle entlangziehen (${{ single: "einfach", double: "doppelt", wavy: "gekringelt" }[K.hstyle]}) – die Linie wird gerade gezogen${K.snap ? " und an der Zeile ausgerichtet" : ""}.` : K.tool === "vline" ? "Senkrecht ziehen, um einen ganzen Bereich am Korrekturrand zu markieren." : K.tool === "pen" ? "Stift oder Maus: waagerecht = unterstreichen, zwei Striche = doppelt, Wellenlinie = gekringelt, senkrecht = Randstrich, Zeichen schreiben = Korrekturzeichen (wird erkannt und an den Rand gesetzt)." : K.tool === "eraser" ? "Eigene Markierung antippen, um sie zu löschen." : K.tool === "redact" ? "Rechteck über personenbezogene Daten ziehen. Für Zweitkorrektur und Endbeurteilung nicht mehr lesbar." : K.tool === "note" ? "Notiz an eine Position setzen – nur für Sie sichtbar, nicht in Berichten oder Einsichtnahme." : K.tool === "text" ? "In den Text klicken und eine Randbemerkung eingeben – sie erscheint am Rand." : "Markierung anklicken (Entf löscht). Randzeichen anklicken zeigt die markierte Stelle."}</div>
+              <span class="row xs" style="gap:12px">${K.tool === "hline" || K.tool === "vline" || K.tool === "pen" ? `<label class="nowrap"><input type="checkbox" id="ksug" ${K.suggest ? "checked" : ""}> Zeichen vorschlagen</label>` : ""}${K.tool === "hline" || K.tool === "pen" ? `<label class="nowrap"><input type="checkbox" id="ksnap" ${K.snap ? "checked" : ""}> an Zeile ausrichten</label>` : ""}</span></div></div>` : ""}
+          ${anchorBar(m, r, km, pages, page)}
           <div class="kpaper2" style="--z:${K.zoom}"><div class="zoombar"><button class="iconbtn" id="kzo">${icon("zoom-out")}</button><span class="xs">${Math.round(K.zoom * 100)} %</span><button class="iconbtn" id="kzi">${icon("zoom-in")}</button></div>
-            <div class="pagehost ${edit ? "tool-" + K.tool : ""}" id="host">${page ? PX.pageHtml(m, page, { anon, marks: visibleMarks(m, st, ex), red, notes, sel: K.sel }) : PX.empty("Keine Seiten")}</div></div>
-          <div class="legend xs">${st === "zk" ? `<span class="mk ek">f</span> Erstkorrektur (Punkte verborgen)` : ""} ${st === "eb" ? `<span class="mk ek">f</span> Erstkorrektur <span class="mk zk">f</span> Zweitkorrektur` : ""} <span class="mk ${st}">f</span> Ihre Zeichen${PX.markErrors(c) ? ` · Fehlerzahl aus Zeichen: <b>${PX.fmtNP(PX.markErrors(c))}</b>` : ""}</div>
+            <div class="pagehost ${edit ? "tool-" + K.tool : ""}" id="host">${page ? PX.pageHtml(m, page, { anon, marks: visibleMarks(m, st, ex), red, notes, sel: K.sel, anchors: anchorList(m, r).filter((a) => a.id === PX.ui.taskFocus) }) : PX.empty("Keine Seiten")}</div></div>
+          <div class="legend xs"><span class="lgk ek">EK</span> rechts, rot${st === "zk" ? " (Punkte verborgen)" : ""} <span class="lgk zk">ZK</span> links, grün <span class="lgk eb">EB</span> links außen, braun · Ihre Zeichen: ${PX.STAGE_SHORT[st]}${PX.markErrors(c) ? ` · Fehlerzahl aus Zeichen: <b>${PX.fmtNP(PX.markErrors(c))}</b>` : ""}</div>
         </section>
         <aside class="kside2"><div class="tabs small">${sideTabs.map(([k, l]) => `<button class="${K.tab === k ? "active" : ""}" data-tab="${k}">${l}</button>`).join("")}</div>
-          ${K.tab === "bew" ? `<div class="sec scoring">${PX.scoringHtml(r, c, km, { edit, lehrerEdit: edit && st === "ek" && !lehrerLocked, ekView: st === "ek", m, extEdit: edit && st === "ek", stage: st, focus: PX.ui.taskFocus, markCount: PX.markErrors(c) })}
+          ${K.tab === "bew" ? `<div class="sec scoring">${PX.scoringHtml(r, c, km, { edit, lehrerEdit: edit && st === "ek" && !lehrerLocked, ekView: st === "ek", m, extEdit: edit && st === "ek", stage: st, focus: PX.ui.taskFocus, markCount: PX.markErrors(c), anchors: m.anchors || {}, page: page?.id, pageNo: (pid) => pages.findIndex((p) => p.id === pid) + 1, anchorEdit: canEdit(m, st) })}
             ${st === "ek" && (r.groups || []).some((g) => g.chooser === "lehrer") ? `<div class="xs muted mt-s">${icon("info")} Die Lehrerwahl gilt für alle Mappen der Kursmappe${lehrerLocked ? " und ist festgelegt, da bereits Mappen abgeschlossen sind" : ""}. Sie ist für Zweitkorrektur, Endbeurteilung und Statistik sichtbar.</div>` : ""}
             ${r.formPdf ? `<div class="formpdf mt"><b class="small">${icon("file-up")} Formblatt (PDF)</b>${c.formPdf ? `<div class="small">${icon("file-check")} ${esc(c.formPdf.file)} ${edit ? `<button class="link xs" id="fprm">entfernen</button>` : ""}</div>` : edit ? `<div class="row mt-s"><button class="btn sm" id="fpup">${icon("upload")} Ausgefülltes Formblatt hochladen</button></div><div class="xs muted">Pflicht für dieses Fach. Die Bewertung erfolgt zusätzlich im Raster.</div>` : `<div class="xs muted">nicht hochgeladen</div>`}</div>` : ""}
             ${edit ? `<button class="btn primary block mt" id="finish">${icon("check")} Korrektur dieser Mappe abschließen</button>` : c.state === "fertig" && (km.sandbox || (PX.stageOpen(km, st) && !km.stages[st].lkDone.includes(me().id))) && !lockOther ? `<button class="btn block mt" id="reopen">${icon("pencil")} Wieder öffnen</button>` : ""}
@@ -255,13 +267,25 @@
     $$("[data-delnote]", root).forEach((b) => (b.onclick = () => { pushUndo(c); c.notes = c.notes.filter((n) => n.id !== b.dataset.delnote); PX.audit("Notiz gelöscht", who); save(); }));
     const bc = $("#bcat", root); if (bc) bc.onchange = () => { K.bcat = bc.value; PX.rerender(); };
     const clr = $("#clrred", root); if (clr) clr.onclick = () => { pushUndo(c); c.redactions = []; save(); };
-    if (!edit) return;
+    // Sprungmarken: springen (alle Stufen) und setzen (bearbeitende Korrektur)
+    const pageIdx = (pid) => pages.findIndex((p) => p.id === pid);
+    const jump = (id) => { const a = m.anchors?.[id]; if (!a) return PX.toast("Keine Sprungmarke", "Für diese Teilaufgabe wurde noch keine Sprungmarke gesetzt.", "info"); const i = pageIdx(a.page); if (i < 0) return; K.page = i; K.flashY = a.y ?? null; PX.ui.taskFocus = id; PX.rerender(); };
+    function setAnchor(id, silent) { m.anchors = m.anchors || {}; const y = K.lastMark?.page === page.id ? K.lastMark.y : null; m.anchors[id] = { page: page.id, y, by: st }; if (!silent) { PX.toast("Sprungmarke gesetzt", `${r.nodes.find((n) => n.id === id)?.no}: Seite ${K.page + 1}${y != null ? ", an der letzten Markierung" : ""}`); PX.save(); PX.rerender(); } }
+    $$("[data-jump]", root).forEach((b) => (b.onclick = () => jump(b.dataset.jump)));
+    const js = $("#jumpsel", root); if (js) js.onchange = () => { if (js.value) jump(js.value); };
+    $$("[data-anc]", root).forEach((b) => (b.onclick = () => { const id = b.dataset.anc; const a = m.anchors?.[id]; if (a && a.page !== page?.id) return jump(id); if (edit && page) setAnchor(id); else if (!a) PX.toast("Keine Sprungmarke", "", "info"); }));
+    if (K.flashY != null && page) { const y = K.flashY; K.flashY = null; setTimeout(() => { const sh = $("#host .sheet", root); if (!sh) return; const bb = sh.getBoundingClientRect(); window.scrollTo({ top: scrollY + bb.top + (y / PX.PH) * bb.height - 160, behavior: "smooth" }); const d = document.createElement("span"); d.className = "khl " + st; d.style.left = "16%"; d.style.top = (y / PX.PH) * 100 + "%"; sh.querySelector(".overlay").appendChild(d); setTimeout(() => d.remove(), 2300); }, 30); }
+    if (!edit) {
+      const sh = $("#host .sheet", root); if (sh) sh.addEventListener("click", (e) => { const hit = e.target.closest(".ksgroup [data-mk]"); if (hit && hit.dataset.ax) { const d = document.createElement("span"); d.className = "khl " + st; d.style.left = hit.dataset.ax + "%"; d.style.top = (hit.dataset.ay / PX.PH) * 100 + "%"; sh.querySelector(".overlay").appendChild(d); setTimeout(() => d.remove(), 2300); } });
+      return;
+    }
     // Bewertung (Raster)
     const sc = $(".scoring", root);
     if (sc) PX.bindScoring(sc, r, c, km, (msg) => {
       K.undo.push(snap);
       if (msg?.lehrer) PX.audit("Lehrerwahl festgelegt", PX.kmLabel(km), `${msg.lehrer.label}: ${PX.choiceOf(r, msg.lehrer, c, km).map((id) => r.nodes.find((n) => n.id === id)?.no).join(", ")} – gilt für alle Mappen der Kursmappe`);
       if (msg?.extern) PX.audit("Notenpunkte nicht korrekturrelevanter Teil eingetragen", `${m.first} ${m.last}`, JSON.stringify(m.extern));
+      if (msg?.focusNext && page && (st === "ek" || !m.anchors?.[msg.focusNext])) setAnchor(msg.focusNext, true);
       save();
       if (msg?.focusNext) setTimeout(() => { const all = $$("[data-v]"); const i = all.findIndex((x) => x.dataset.v === msg.focusNext); const n = all.slice(i + 1).find((x) => !x.disabled); n && n.focus(); }, 0);
     }, { m, markCount: PX.markErrors(c) });
@@ -281,57 +305,112 @@
       if (list.length) PX.go(`#/korr/m/${list[0].id}/${st}`); else PX.go(km.sandbox ? `#/korr/test/${r.id}` : `#/korr/km/${km.id}/${st}`);
     };
     const ro = $("#reopen", root); if (ro) ro.onclick = () => { O().reopenMappe(m.id, st); save(); };
-    // Zeichenleiste: Zeichen wählen oder ausgewählter Markierung zuordnen
+    // Zeichenleiste: Zeichen wählen oder ausgewähltes Randzeichen ändern
     const useSign = (id) => { K.recent = [id, ...K.recent.filter((x) => x !== id)].slice(0, 5); };
     const withCount = (z, mark, done) => { if (z?.count) countModal(z, (v) => { mark.count = v; done(); }); else done(); };
     $$("[data-sign]", root).forEach((b) => (b.onclick = () => {
-      const sel = c.marks.find((x) => x.id === K.sel);
-      if (sel && (sel.kind === "line" || sel.kind === "pen")) { const z = signById(b.dataset.sign); pushUndo(c); sel.sign = z.id; sel.code = z.code; useSign(z.id); withCount(z, sel, save); return; }
+      const sel = c.marks.find((x) => x.id === K.sel); const z = signById(b.dataset.sign);
+      if (sel && sel.kind === "sign") { pushUndo(c); sel.sign = z.id; sel.code = z.code; delete sel.count; useSign(z.id); withCount(z, sel, save); return; }
       K.tool = "sign"; K.sign = b.dataset.sign; PX.rerender();
     }));
-    // Klicks auf die Seite
+    const hs = $("#hstyle", root); if (hs) hs.onchange = () => { K.hstyle = hs.value; K.tool = "hline"; PX.rerender(); };
+    const ksnap = $("#ksnap", root); if (ksnap) ksnap.onchange = () => { K.snap = ksnap.checked; };
+    // Seite: Zeichnen und Setzen (Maus, Touch, Stift) – Koordinaten in Breiten-Einheiten (x 0–100, y 0–141,4)
     const host = $("#host", root); const sheet = host && host.querySelector(".sheet"); if (!sheet || !page) return;
-    const pos = (e) => { const b = sheet.getBoundingClientRect(); return { x: Math.round(((e.clientX - b.left) / b.width) * 1000) / 10, y: Math.round(((e.clientY - b.top) / b.height) * 1000) / 10 }; };
-    const addMark = (mk) => { const z = signById(mk.sign); pushUndo(c); c.marks.push(Object.assign({ id: PX.uid("k"), page: page.id, part: K.part }, mk)); if (z) useSign(z.id); save(); };
-    sheet.addEventListener("click", (e) => {
-      if (K.tool === "line" || K.tool === "pen" || K.tool === "redact") return;
-      const mk = e.target.closest("[data-mk]");
-      if (mk) {
-        const own = c.marks.find((x) => x.id === mk.dataset.mk); if (own) { K.sel = own.id; PX.rerender(); return; }
+    const ov = sheet.querySelector(".overlay"); const svgEl = ov.querySelector(".mksvg");
+    const pu = (e) => { const b = sheet.getBoundingClientRect(); return { x: ((e.clientX - b.left) / b.width) * 100, y: ((e.clientY - b.top) / b.width) * 100 }; };
+    const pct = (e) => { const b = sheet.getBoundingClientRect(); return { x: Math.round(((e.clientX - b.left) / b.width) * 1000) / 10, y: Math.round(((e.clientY - b.top) / b.height) * 1000) / 10 }; };
+    const clampX = (x) => Math.max(16, Math.min(84, x));
+    const r1 = (v) => Math.round(v * 10) / 10;
+    const addMark = (mk, msg) => { pushUndo(c); const z = signById(mk.sign); const id = PX.uid("k"); c.marks.push(Object.assign({ id, page: page.id, part: K.part }, mk)); if (z) useSign(z.id); K.lastMark = { page: page.id, y: mk.ay ?? mk.y ?? mk.y1 }; if (msg) PX.toast(msg, "", "success"); save(); return id; };
+    const placeSign = (signId, ax, ay, msg) => { const z = signById(signId); if (!z) return; const mark = { kind: "sign", sign: z.id, code: z.code, ax: r1(clampX(ax)), ay: r1(ay) }; withCount(z, mark, () => addMark(mark, msg)); };
+    // Vorschlag eines Korrekturzeichens nach Linien (optional)
+    const afterLine = (ax, ay) => { if (K.suggest) signModal(ex, K.part, (sid) => { if (sid) placeSign(sid, ax, ay); }); };
+    const tmp = (d) => { svgEl.querySelector(".tmp")?.remove(); if (!d) return; const el = document.createElementNS("http://www.w3.org/2000/svg", "path"); el.setAttribute("class", "tmp"); el.setAttribute("stroke", getComputedStyle(document.documentElement).getPropertyValue(st === "ek" ? "--ekc" : st === "zk" ? "--zkc" : "--ebc")); el.setAttribute("d", d); svgEl.appendChild(el); };
+    let drag = null;
+    // Stift: Striche sammeln, nach kurzer Pause auswerten
+    const canvas = document.createElement("canvas"); canvas.className = "inkcanvas"; ov.appendChild(canvas);
+    const ctx = canvas.getContext("2d"); const rs = () => { const b = sheet.getBoundingClientRect(); canvas.width = b.width; canvas.height = b.height; }; rs();
+    const pen = K.pen = { strokes: [], drawing: false, timer: null };
+    sheet.addEventListener("pointerdown", (e) => {
+      const hit = e.target.closest("[data-mk]");
+      if (e.pointerType === "pen" && !["pen", "eraser", "redact"].includes(K.tool)) { K.tool = "pen"; PX.toast("Stift erkannt", "Stifteingabe aktiv: Linien und Korrekturzeichen werden erkannt.", "info"); PX.rerender(); return; }
+      if (K.tool === "eraser") { if (hit) { const own = c.marks.find((x) => x.id === hit.dataset.mk); if (own) { pushUndo(c); c.marks = c.marks.filter((x) => x !== own); save(); } else PX.toast("Markierung einer anderen Korrektur", "Nur eigene Markierungen können gelöscht werden.", "info"); } return; }
+      if (hit && K.tool !== "pen") { const own = c.marks.find((x) => x.id === hit.dataset.mk); if (own) { K.sel = own.id; K.tool = K.tool === "sign" ? "sign" : "select"; PX.rerender(); } else showAnchor(hit); return; }
+      if (["redact"].includes(K.tool)) return;
+      const p = pu(e);
+      if (K.tool === "pen") { clearTimeout(pen.timer); pen.drawing = true; pen.cur = [p]; pen.strokes.push(pen.cur); try { sheet.setPointerCapture(e.pointerId); } catch (_) {} rs(); ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue(st === "ek" ? "--ekc" : st === "zk" ? "--zkc" : "--ebc"); ctx.lineWidth = 2.2; ctx.lineCap = "round"; e.preventDefault(); return; }
+      if (["hline", "vline"].includes(K.tool)) { drag = { p0: p, p1: p }; try { sheet.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); }
+    });
+    sheet.addEventListener("pointermove", (e) => {
+      const p = pu(e);
+      if (pen.drawing) { const l = pen.cur[pen.cur.length - 1]; const k = canvas.width / 100; ctx.beginPath(); ctx.moveTo(l.x * k, l.y * k); ctx.lineTo(p.x * k, p.y * k); ctx.stroke(); pen.cur.push(p); return; }
+      if (!drag) return; drag.p1 = p; const { p0 } = drag;
+      if (K.tool === "hline") { const y = K.snap ? PX.snapLine(p0.y) : p0.y; tmp(`M${clampX(Math.min(p0.x, p.x))},${y} L${clampX(Math.max(p0.x, p.x))},${y}`); }
+      if (K.tool === "vline") { const x = PX.MARGIN[st].vx; tmp(`M${x},${Math.min(p0.y, p.y)} L${x},${Math.max(p0.y, p.y)}`); }
+    });
+    sheet.addEventListener("pointerup", (e) => {
+      if (pen.drawing) { pen.drawing = false; clearTimeout(pen.timer); pen.timer = setTimeout(finishInk, 800); return; }
+      if (drag) {
+        const { p0, p1 } = drag; drag = null; tmp(null);
+        if (K.tool === "hline" && Math.abs(p1.x - p0.x) > 2) { const y = r1(K.snap ? PX.snapLine(p0.y) : p0.y); const x1 = r1(clampX(Math.min(p0.x, p1.x))), x2 = r1(clampX(Math.max(p0.x, p1.x))); addMark({ kind: "hline", style: K.hstyle, x1, x2, y }); afterLine(x1, y); }
+        else if (K.tool === "vline" && Math.abs(p1.y - p0.y) > 2) { const y1 = r1(Math.min(p0.y, p1.y)), y2 = r1(Math.max(p0.y, p1.y)); addMark({ kind: "vline", y1, y2 }); afterLine(clampX(16), (y1 + y2) / 2); }
         return;
       }
+    });
+    sheet.addEventListener("pointercancel", () => { drag = null; pen.drawing = false; tmp(null); });
+    sheet.addEventListener("click", (e) => {
+      if (["hline", "vline", "pen", "redact", "eraser"].includes(K.tool)) return;
+      if (e.target.closest("[data-mk]")) return;
       if (e.target.closest("[data-nt]")) { const n = c.notes.find((x) => x.id === e.target.closest("[data-nt]").dataset.nt); n && PX.toast("Notiz", esc(n.text), "info"); return; }
-      const p = pos(e);
-      if (K.tool === "sign") { const z = signById(K.sign); if (!z) return; const mark = { kind: "sign", x: p.x, y: p.y, sign: z.id, code: z.code }; withCount(z, mark, () => addMark(mark)); }
-      if (K.tool === "text") textDialog("Randbemerkung", "", (t) => addMark({ kind: "sign", x: p.x, y: p.y, code: "»", text: t }));
-      if (K.tool === "note") textDialog("Private Notiz", "Keine personenbezogenen Daten und keine Punktangaben.", (t) => { if (/\d+\s*(BE|NP|Punkte)/i.test(t)) return PX.toast("Nicht zulässig", "Notizen dürfen keine Bewertungsangaben enthalten.", "warn"); pushUndo(c); c.notes.push({ id: PX.uid("n"), page: page.id, x: p.x, y: p.y, text: t, by: me().id }); PX.audit("Notiz erstellt", who, "Inhalt nur für Verfasser:in sichtbar"); save(); });
+      const p = pu(e);
+      if (K.tool === "sign") placeSign(K.sign, p.x, p.y);
+      if (K.tool === "text") textDialog("Randbemerkung", "Erscheint am Korrekturrand.", (t) => addMark({ kind: "text", text: t, ax: r1(clampX(p.x)), ay: r1(p.y) }));
+      if (K.tool === "note") { const q = pct(e); textDialog("Private Notiz", "Keine personenbezogenen Daten und keine Punktangaben.", (t) => { if (/\d+\s*(BE|NP|Punkte)/i.test(t)) return PX.toast("Nicht zulässig", "Notizen dürfen keine Bewertungsangaben enthalten.", "warn"); pushUndo(c); c.notes.push({ id: PX.uid("n"), page: page.id, x: q.x, y: q.y, text: t, by: me().id }); PX.audit("Notiz erstellt", who, "Inhalt nur für Verfasser:in sichtbar"); save(); }); }
       if (K.tool === "select") { K.sel = null; PX.rerender(); }
     });
-    // Unterstreichen und Stift: Markierung zeichnen, danach Zeichen vorschlagen
-    if (K.tool === "line" || K.tool === "pen") {
-      let start = null, pts = [], ghost = null;
-      const svgNS = "http://www.w3.org/2000/svg";
-      sheet.addEventListener("mousedown", (e) => { e.preventDefault(); start = pos(e); pts = [[start.x, start.y]];
-        let svg = sheet.querySelector(".mksvg"); if (!svg) { svg = document.createElementNS(svgNS, "svg"); svg.setAttribute("class", "mksvg"); svg.setAttribute("viewBox", "0 0 100 100"); svg.setAttribute("preserveAspectRatio", "none"); sheet.querySelector(".overlay").appendChild(svg); }
-        ghost = document.createElementNS(svgNS, K.tool === "line" ? "line" : "polyline"); ghost.setAttribute("class", (K.tool === "line" ? "ul " : "pen ") + st); svg.appendChild(ghost); });
-      sheet.addEventListener("mousemove", (e) => { if (!start) return; const p = pos(e);
-        if (K.tool === "line") { ghost.setAttribute("x1", start.x); ghost.setAttribute("y1", start.y); ghost.setAttribute("x2", p.x); ghost.setAttribute("y2", start.y); }
-        else { const l = pts[pts.length - 1]; if (Math.hypot(p.x - l[0], p.y - l[1]) > 0.6) pts.push([p.x, p.y]); ghost.setAttribute("points", pts.map((q) => q.join(",")).join(" ")); } });
-      window.addEventListener("mouseup", function up(e) {
-        window.removeEventListener("mouseup", up); if (!start) return; const p = pos(e); const s0 = start; start = null;
-        const mark = K.tool === "line" ? { kind: "line", x1: Math.min(s0.x, p.x), x2: Math.max(s0.x, p.x), y: s0.y } : { kind: "pen", pts: pts.length > 1 ? pts : [[s0.x, s0.y], [p.x, p.y]] };
-        if ((mark.kind === "line" && mark.x2 - mark.x1 < 2) || (mark.kind === "pen" && pts.length < 3)) { PX.rerender(); return; }
-        const finish = (signId) => { const z = signById(signId); if (z) { mark.sign = z.id; mark.code = z.code; } withCount(z, mark, () => addMark(mark)); };
-        if (K.suggest) signModal(ex, K.part, finish); else finish(K.sign);
-      });
+    // Handschrift / Gesten auswerten: nur zugelassene Korrekturzeichen werden übernommen
+    function finishInk() {
+      const W = sheet.getBoundingClientRect().width / 100;
+      const strokes = pen.strokes.filter((s) => s.length > 1).map((s) => s.map((q) => ({ x: q.x * W, y: q.y * W }))); pen.strokes = [];
+      const clear = () => ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!strokes.length) { clear(); return; }
+      const g = PX.ink.classifyGesture(strokes);
+      if (g.type === "hline") { clear(); const y = r1(K.snap ? PX.snapLine(g.y / W) : g.y / W); const x1 = r1(clampX(g.x1 / W)), x2 = r1(clampX(g.x2 / W)); addMark({ kind: "hline", style: g.style, x1, x2, y }, { single: "Unterstreichung erkannt (gerade gezogen)", double: "Doppelte Unterstreichung erkannt", wavy: "Unterkringelung erkannt" }[g.style]); afterLine(x1, y); return; }
+      if (g.type === "vline") { clear(); addMark({ kind: "vline", y1: r1(g.y1 / W), y2: r1(g.y2 / W) }, "Randstrich erkannt"); return; }
+      const allowed = PX.examSigns(ex, K.part).filter((z) => PX.ink.canWrite(z.code));
+      const keyOf = new Map(allowed.map((z) => [PX.ink.key(z.code), z]));
+      const res = PX.ink.recognizeSign(strokes, [...keyOf.keys()]);
+      const dec = PX.ink.decide(res); const b = g.bbox;
+      const ax = b.minX / W, ay = b.cy / W;
+      const sb = sheet.getBoundingClientRect(); const px = Math.min(innerWidth - 360, sb.left + b.maxX + 12), py = Math.max(10, sb.top + b.minY - 8);
+      if (dec === "accept") {
+        clear(); const z = keyOf.get(res[0].sign); placeSign(z.id, ax, ay, `Erkannt: „${z.code}“ – ${z.meaning}`);
+      } else if (dec === "ask") {
+        inkPop(px, py, `<div class="small"><b>Welches Korrekturzeichen meinten Sie?</b></div><div class="row wrap mt-s" style="gap:4px">${res.slice(0, 4).map((x, i) => { const z = keyOf.get(x.sign); return `<button class="btn sm ${i === 0 ? "primary" : ""}" data-pick="${z.id}" title="${esc(z.meaning)}">${esc(z.code)}</button>`; }).join("")}</div><div class="row between mt-s"><span class="xs muted">Nur zugelassene Zeichen</span><button class="btn xs ghost" data-drop>${icon("x")} Verwerfen</button></div>`, (el) => {
+          $$("[data-pick]", el).forEach((x) => (x.onclick = () => { el.remove(); clear(); placeSign(x.dataset.pick, ax, ay); }));
+          $("[data-drop]", el).onclick = () => { el.remove(); clear(); };
+        });
+      } else { setTimeout(clear, 700); PX.toast("Kein zulässiges Korrekturzeichen erkannt", `Bitte erneut schreiben. Zulässig sind nur die Zeichen dieser Prüfung (${allowed.map((z) => z.code).join(", ")}).`, "error"); }
     }
+    function inkPop(x, y, html, bind) { document.querySelectorAll(".inkpop").forEach((n) => n.remove()); const el = document.createElement("div"); el.className = "inkpop"; el.style.left = x + "px"; el.style.top = y + "px"; el.innerHTML = html; document.body.appendChild(el); bind(el); }
+    // Randzeichen anklicken: markierte Textstelle aufleuchten lassen
+    function showAnchor(hit) { const ax = hit.dataset.ax, ay = hit.dataset.ay; if (ax == null) return; const st2 = hit.closest(".ksgroup")?.classList.contains("zk") ? "zk" : hit.closest(".ksgroup")?.classList.contains("eb") ? "eb" : "ek"; const d = document.createElement("span"); d.className = "khl " + st2; d.style.left = ax + "%"; d.style.top = (ay / PX.PH) * 100 + "%"; ov.appendChild(d); setTimeout(() => d.remove(), 2300); }
     if (K.tool === "redact") {
       let start = null, box = null;
-      sheet.addEventListener("mousedown", (e) => { e.preventDefault(); start = pos(e); box = document.createElement("span"); box.className = "redact drawing"; sheet.querySelector(".overlay").appendChild(box); });
-      sheet.addEventListener("mousemove", (e) => { if (!start) return; const p = pos(e); Object.assign(box.style, { left: Math.min(start.x, p.x) + "%", top: Math.min(start.y, p.y) + "%", width: Math.abs(p.x - start.x) + "%", height: Math.abs(p.y - start.y) + "%" }); });
-      window.addEventListener("mouseup", function up(e) { window.removeEventListener("mouseup", up); if (!start) return; const p = pos(e); const w = Math.abs(p.x - start.x), h = Math.abs(p.y - start.y); if (w > 2 && h > 1) { pushUndo(c); c.redactions = c.redactions || []; c.redactions.push({ id: PX.uid("r"), page: page.id, x: Math.min(start.x, p.x), y: Math.min(start.y, p.y), w, h }); PX.audit("Personenbezogene Daten geschwärzt", m.nr, "Seite " + (K.page + 1)); } start = null; save(); });
+      sheet.addEventListener("mousedown", (e) => { e.preventDefault(); start = pct(e); box = document.createElement("span"); box.className = "redact drawing"; ov.appendChild(box); });
+      sheet.addEventListener("mousemove", (e) => { if (!start) return; const p = pct(e); Object.assign(box.style, { left: Math.min(start.x, p.x) + "%", top: Math.min(start.y, p.y) + "%", width: Math.abs(p.x - start.x) + "%", height: Math.abs(p.y - start.y) + "%" }); });
+      window.addEventListener("mouseup", function up(e) { window.removeEventListener("mouseup", up); if (!start) return; const p = pct(e); const w = Math.abs(p.x - start.x), h = Math.abs(p.y - start.y); if (w > 2 && h > 1) { pushUndo(c); c.redactions = c.redactions || []; c.redactions.push({ id: PX.uid("r"), page: page.id, x: Math.min(start.x, p.x), y: Math.min(start.y, p.y), w, h }); PX.audit("Personenbezogene Daten geschwärzt", m.nr, "Seite " + (K.page + 1)); } start = null; save(); });
     }
-    document.onkeydown = (e) => { if (!/^#\/korr\/m\//.test(location.hash)) return; if ((e.key === "Delete" || e.key === "Backspace") && K.sel && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { pushUndo(c); c.marks = c.marks.filter((x) => x.id !== K.sel); K.sel = null; save(); } };
+    document.onkeydown = (e) => {
+      if (!/^#\/korr\/m\//.test(location.hash) || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+      if ((e.key === "Delete" || e.key === "Backspace") && K.sel) { pushUndo(c); c.marks = c.marks.filter((x) => x.id !== K.sel); K.sel = null; save(); return; }
+      const map = { s: "select", u: "hline", v: "vline", p: "pen", e: "eraser", z: "sign" };
+      const k = e.key.toLowerCase(); if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (k === "u" && K.tool === "hline") { K.hstyle = { single: "double", double: "wavy", wavy: "single" }[K.hstyle]; PX.rerender(); return; }
+      if (map[k]) { K.tool = map[k]; K.sel = null; PX.rerender(); }
+      if (e.key === "Escape") { K.tool = "select"; K.sel = null; PX.rerender(); }
+    };
   }
   function textDialog(title, hint, cb) {
     PX.modal({ title, size: "narrow", body: `${hint ? `<p class="xs muted">${esc(hint)}</p>` : ""}<textarea class="input" id="tx" rows="3"></textarea>`, foot: `<button class="btn" data-close>Abbrechen</button><button class="btn primary" data-ok>Übernehmen</button>`, onMount: (m, close) => { $("#tx", m).focus(); $("[data-ok]", m).onclick = () => { const t = $("#tx", m).value.trim(); if (!t) return; close(); cb(t); }; } });

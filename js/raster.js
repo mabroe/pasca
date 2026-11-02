@@ -113,7 +113,7 @@
     const korr = out.parts.filter((p) => p.scoring !== "extern");
     if (r.combine === "sum") {
       out.max = PX.sum(korr.map((p) => p.max || 0));
-      const bonus = Math.max(0, Math.min(+c.bonus || 0, r.bonus?.max || 0));
+      const bonus = r.bonus?.on ? Math.max(0, Math.min(+c.bonus || 0, r.bonus?.max || 0)) : 0;
       out.sumRaw = PX.sum(korr.map((p) => p.sum || 0)); out.bonus = bonus;
       out.sum = Math.min(out.max, out.sumRaw + bonus); out.pct = out.max ? (out.sum / out.max) * 100 : 0;
       out.npRaw = PX.keyLookup(r.key, out.sum);
@@ -161,6 +161,7 @@
       return `<div class="rleaf d${depth} ${on ? "" : "off"} ${opts.focus === n.id ? "focus" : ""}"><span class="no">${esc(n.no)}</span><span class="tt small">${esc(n.title || "")}${n.weight != null && p.scoring === "np" ? ` <span class="xs muted">(${PX.fmtNP(n.weight * 100)} %)</span>` : ""}</span>
         ${on ? `<span class="mx xs muted">${max != null ? "max " + max : "Fehler"}</span><input class="input sm num" type="number" step="${p.scoring === "fehler" || n.half ? "0.25" : "1"}" min="0" ${max != null ? `max="${max}"` : ""} data-v="${n.id}" value="${nb ? "" : v ?? ""}" ${dis || (nb ? "disabled" : "")} aria-label="${esc(n.no)}">
         ${p.scoring !== "np" && p.scoring !== "fehler" ? `<label class="nb" title="nicht bearbeitet"><input type="checkbox" data-nb="${n.id}" ${nb ? "checked" : ""} ${dis}>n. b.</label>` : ""}
+        ${opts.anchors ? (() => { const an = opts.anchors[n.id]; const here = an && an.page === opts.page; return `<button class="anc ${an ? "on" : ""} ${here ? "here" : ""}" data-anc="${n.id}" title="${an ? (here ? "Sprungmarke auf dieser Seite" + (opts.anchorEdit ? " – klicken: an der letzten Markierung neu setzen" : "") : "Zur Sprungmarke springen") : opts.anchorEdit ? "Sprungmarke auf dieser Seite setzen" : "keine Sprungmarke"}">${icon("bookmark")}${an ? " S. " + opts.pageNo(an.page) : ""}</button>`; })() : ""}
         ${p.scoring === "fehler" && opts.markCount != null ? `<button class="link xs" data-fromsigns="${n.id}" ${dis}>aus Zeichen: ${PX.fmtNP(opts.markCount)}</button>` : ""}` : ""}</div>`;
     };
     const children = (parentId, p, depth) => {
@@ -183,7 +184,7 @@
         ${pr.capped ? `<div class="xs warntext">${icon("triangle-alert")} Kappung: ${esc(pr.capped)}</div>` : ""}${children(null, p, 0)}</div>`;
     }).join("");
     const totals = `<div class="rtotal">${r.combine === "sum" ? `<div class="row between small"><span>Summe</span><span>${res.sumRaw ?? 0} / ${res.max} BE</span></div>
-      ${r.bonus?.max ? `<div class="row between small mt-s"><label for="bonus">Zusatz-BE (hervorragende Lösung, max. ${r.bonus.max})</label><input class="input sm num" type="number" min="0" max="${r.bonus.max}" id="bonus" value="${c.bonus || 0}" ${dis}></div>` : ""}
+      ${r.bonus?.on && r.bonus?.max ? `<div class="row between small mt-s"><label for="bonus">Zusatz-BE für besonders gute Lösungen (max. ${r.bonus.max})</label><input class="input sm num" type="number" min="0" max="${r.bonus.max}" id="bonus" value="${c.bonus || 0}" ${dis}></div>` : ""}
       <div class="row between small mt-s"><span>${esc(PX.KEYS[r.key]?.name || "Notenschlüssel")}</span><b>${res.sum ?? 0} BE → ${res.npRaw ?? "–"} NP</b></div>`
       : `<div class="row between small"><span>${r.combine === "mean" ? "Mittelwert der Teilnoten" : "Gewichtete Teilnoten"} (${esc(PX.ROUND[r.round?.stage || "round"])})</span><b>${PX.fmtNP(res.npRaw)} NP</b></div>`}
       <div class="row between small mt-s"><label for="abz">Abzug Sprachrichtigkeit/Form</label><select class="select sm" id="abz" style="width:90px" ${dis}>${[0, 1, 2].slice(0, (r.abzugMax ?? 2) + 1).map((v) => `<option value="${v}" ${+c.abzug === v ? "selected" : ""}>−${v} NP</option>`).join("")}</select></div>
@@ -219,7 +220,7 @@
     const tree = (pid, partId, d) => PX.kids(r, pid, partId).map((n) => { const g = PX.groupOfNode(r, n.id); const p = PX.partOf(r, n); return `<tr class="d${d}"><td style="padding-left:${8 + d * 16}px">${esc(n.no)}</td><td>${esc(n.title || "")}</td><td>${g ? PX.badge((g.chooser === "lehrer" ? "Lehrerwahl " : "Wahl ") + g.label, g.chooser === "lehrer" ? "purple" : "cyan") : n.pflicht ? PX.badge("Pflicht", "gray") : ""}</td><td class="num">${PX.isLeaf(r, n) ? (p.scoring === "np" ? "≤15 NP" : p.scoring === "fehler" ? "Fehler" : n.be) : p.scoring === "np" ? "" : PX.nodeMax(r, n)}${n.weight != null && p.scoring === "np" ? ` <span class="xs muted">${PX.fmtNP(n.weight * 100)} %</span>` : ""}</td></tr>` + tree(n.id, null, d + 1); }).join("");
     return `<div class="card pad"><h3>${icon("table")} ${esc(r.name)}</h3><div class="xs muted">${esc(PX.COMBINE[r.combine])} · Rundung: ${esc(PX.ROUND[r.round?.stage || "round"])} · ${PX.badge(r.status, r.status === "freigegeben" ? "green" : "yellowb")}</div>
       ${r.parts.map((p) => `<h4 class="mt">${esc(p.name)} <span class="xs muted">${esc(PX.SCORING[p.scoring])}${r.combine !== "sum" ? " · " + p.weight + " %" : ""}${p.key ? " · " + esc(PX.KEYS[p.key]?.name) : ""}</span></h4>${p.scoring === "extern" ? "" : `<table class="tbl compact"><tbody>${tree(null, p.id, 0)}</tbody></table>`}`).join("")}
-      ${r.combine === "sum" ? `<div class="xs mt-s">${icon("sigma")} max. ${PX.maxBE(r)} BE · ${esc(PX.KEYS[r.key]?.name || "")}${r.bonus?.max ? ` · Zusatz-BE bis ${r.bonus.max}` : ""}</div>` : ""}
+      ${r.combine === "sum" ? `<div class="xs mt-s">${icon("sigma")} max. ${PX.maxBE(r)} BE · ${esc(PX.KEYS[r.key]?.name || "")}${r.bonus?.on ? ` · Zusatz-BE bis ${r.bonus.max}` : ""}</div>` : ""}
       ${(r.caps || []).map((cp) => `<div class="xs">${icon("triangle-alert")} ${esc(cp.label)}</div>`).join("")}
       <div class="xs">${icon("notebook-pen")} Gutachten: ${r.gutachten?.on ? `aktiv${r.gutachten.sections?.length > 1 ? " · gegliedert: " + r.gutachten.sections.map(esc).join(", ") : ""} · ${r.gutachten.bausteine?.length || 0} Bausteine` : "inaktiv"}${r.formPdf ? ` · ${icon("file-up")} Formblatt (PDF) erforderlich` : ""}</div></div>`;
   };
@@ -227,7 +228,7 @@
   // ---------- Aufbau aus Zeilen (Seed und Excel-Import) ----------
   // rows: [{ teil, no, title, be, pflicht, group, pick, groupMax }]
   PX.buildRaster = function (rows, base) {
-    const r = Object.assign({ id: PX.uid("rs-"), status: "entwurf", combine: "sum", key: "bg120", round: { stage: "round", final: "ceil", withExtern: "round" }, abzugMax: 2, bonus: { max: 8 }, gutachten: { on: false, sections: ["Gutachten"], bausteine: [] }, formPdf: false, caps: [] }, base || {});
+    const r = Object.assign({ id: PX.uid("rs-"), status: "entwurf", combine: "sum", key: "bg120", round: { stage: "round", final: "ceil", withExtern: "round" }, abzugMax: 2, bonus: { on: false, max: 0 }, gutachten: { on: false, sections: ["Gutachten"], bausteine: [] }, formPdf: false, caps: [] }, base || {});
     r.parts = []; r.nodes = []; r.groups = []; const report = [];
     let teil = null;
     rows.forEach((row) => {
