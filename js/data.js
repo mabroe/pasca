@@ -250,7 +250,7 @@
         { id: "ex-ma-ht", subject: "ma", type: "HT", year: 2027, date: "2027-04-22", time: "08:30", end: "13:00", raster: "rs-ma-27", guideline: "kr-allg", status: "angelegt", creator: "o.mertens" },
         { id: "ex-en-ht", subject: "en", type: "HT", year: 2027, date: "2027-04-27", time: "08:30", end: "13:00", raster: "rs-en-27", guideline: "kr-fs", status: "angelegt", creator: "o.mertens" },
         { id: "ex-gmt-ht", subject: "gmt", type: "HT", year: 2027, date: "2027-04-23", time: "08:30", end: "14:30", raster: "rs-gmt-27", guideline: "kr-allg", status: "angelegt", creator: "o.mertens", zusatz: true },
-        { id: "ex-la-ht", subject: "la", type: "HT", year: 2027, date: "2027-04-13", time: "08:30", end: "12:30", raster: "rs-la-27", guideline: "", status: "angelegt", creator: "o.mertens", zkMode: "abweichung" },
+        { id: "ex-la-ht", subject: "la", type: "HT", year: 2027, date: "2027-04-13", time: "08:30", end: "12:30", raster: "rs-la-27", guideline: "", status: "angelegt", creator: "o.mertens" },
         { id: "ex-bk-ht", subject: "bk", type: "HT", year: 2027, date: "2027-04-16", time: "08:30", end: "13:30", raster: "rs-bk-27", guideline: "", status: "angelegt", creator: "o.mertens" },
       ],
       imports: {}, kms: [], mappen: [], groups: [],

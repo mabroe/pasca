@@ -56,9 +56,9 @@
     }
     const ownMarks = (opts.marks || []).filter((k) => k.page === page.id);
     const lab = (k) => `${esc(k.code || "")}${k.count ? `<sub>${PX.fmtNP(k.count)}</sub>` : ""}`;
-    const svg = ownMarks.filter((k) => k.kind === "line" || k.kind === "pen").map((k) => k.kind === "line" ? `<line class="ul ${k.stage} ${k.dev ? "dev" : ""}" x1="${k.x1}" y1="${k.y}" x2="${k.x2}" y2="${k.y}"/>` : `<polyline class="pen ${k.stage}" points="${k.pts.map((q) => q.join(",")).join(" ")}"/>`).join("");
+    const svg = ownMarks.filter((k) => k.kind === "line" || k.kind === "pen").map((k) => k.kind === "line" ? `<line class="ul ${k.stage}" x1="${k.x1}" y1="${k.y}" x2="${k.x2}" y2="${k.y}"/>` : `<polyline class="pen ${k.stage}" points="${k.pts.map((q) => q.join(",")).join(" ")}"/>`).join("");
     const marks = ownMarks.map((k) => { const pos = k.kind === "line" ? { x: k.x2, y: k.y - 2.2 } : k.kind === "pen" ? { x: k.pts[k.pts.length - 1][0], y: k.pts[k.pts.length - 1][1] - 2 } : k; if ((k.kind === "line" || k.kind === "pen") && !k.code) return `<span class="mk hit ${k.stage} ${opts.sel === k.id ? "sel" : ""}" data-mk="${k.id}" style="left:${pos.x}%;top:${pos.y}%" title="Markierung ohne Zeichen">·</span>`;
-      return `<span class="mk ${k.stage} ${k.dev ? "dev" : ""} ${k.ghost ? "ghost" : ""} ${opts.sel === k.id ? "sel" : ""}" data-mk="${k.id}" style="left:${pos.x}%;top:${pos.y}%" title="${esc(k.text || k.meaning || "")}${k.dev ? " (Abweichung ZK)" : ""}">${lab(k)}${k.text ? `<em>${esc(k.text)}</em>` : ""}</span>`; }).join("");
+      return `<span class="mk ${k.stage} ${opts.sel === k.id ? "sel" : ""}" data-mk="${k.id}" style="left:${pos.x}%;top:${pos.y}%" title="${esc(k.text || k.meaning || "")}">${lab(k)}${k.text ? `<em>${esc(k.text)}</em>` : ""}</span>`; }).join("");
     const red = (opts.red || []).filter((x) => x.page === page.id).map((x) => `<span class="redact" data-rd="${x.id}" style="left:${x.x}%;top:${x.y}%;width:${x.w}%;height:${x.h}%"></span>`).join("");
     const notes = (opts.notes || []).filter((x) => x.page === page.id).map((x) => `<span class="pnote" data-nt="${x.id}" style="left:${x.x}%;top:${x.y}%" title="Notiz (nur für Sie sichtbar): ${esc(x.text)}">✎</span>`).join("");
     const q = opts.dpi && opts.dpi < 300 ? "lowdpi" : "";

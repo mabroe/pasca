@@ -53,7 +53,7 @@
   // ---------- Assistent „Prüfung anlegen“ ----------
   let wiz = null;
   const blankTerm = () => ({ on: true, date: "", time: "08:30", end: "13:00", own: false, ekEnd: "", zkEnd: "", ebStart: "", ebEnd: "" });
-  const blankWiz = () => ({ step: 0, subject: "", terms: { HT: blankTerm(), NT: blankTerm(), NNT: blankTerm() }, raster: "", guideline: "", zusatz: false, zkMode: "neu", signset: null, partSigns: {} });
+  const blankWiz = () => ({ step: 0, subject: "", terms: { HT: blankTerm(), NT: blankTerm(), NNT: blankTerm() }, raster: "", guideline: "", zusatz: false, signset: null, partSigns: {} });
   const STEPS = ["Prüfungsfach", "Prüfungstermine", "Korrekturzeiträume", "Bewertung und Korrekturzeichen", "Prüfen und speichern"];
   // Effektive Zeiträume: aus dem Korrekturkalender (Schulform, Terminart, Jahr) oder abweichend
   const calOf = (subject, type, date) => (date ? PX.calendarFor(PX.schulform(subject), type, +date.slice(0, 4)) : null);
@@ -80,8 +80,6 @@
     $$("[data-zset]", root).forEach((i) => (i.onchange = () => { holder.signset = i.checked ? [...new Set([...holder.signset, i.dataset.zset])] : holder.signset.filter((x) => x !== i.dataset.zset); Object.keys(holder.partSigns || {}).forEach((k) => (holder.partSigns[k] = holder.partSigns[k].filter((x) => holder.signset.includes(x)))); rerender(); }));
     $$("[data-pset]", root).forEach((i) => (i.onchange = () => { const [p, z] = i.dataset.pset.split("|"); holder.partSigns = holder.partSigns || {}; const cur = holder.partSigns[p] || []; holder.partSigns[p] = i.checked ? [...cur, z] : cur.filter((x) => x !== z); rerender(); }));
   }
-  const zkModeHtml = (v, ro) => `<div class="field"><label class="lbl">Zweitkorrektur</label><div class="segmented"><button data-zkm="neu" class="${v !== "abweichung" ? "active" : ""}" ${ro ? "disabled" : ""}>setzt alle Korrekturzeichen neu</button><button data-zkm="abweichung" class="${v === "abweichung" ? "active" : ""}" ${ro ? "disabled" : ""}>markiert nur Abweichungen</button></div>
-    <div class="xs muted mt-s">${v === "abweichung" ? "Die Zweitkorrektur sieht die Zeichen der Erstkorrektur (ohne Punkte und Gutachten) und kennzeichnet abweichende Stellen." : "Die Zweitkorrektur sieht die Zeichen der Erstkorrektur (ohne Punkte und Gutachten) und setzt alle Korrekturzeichen erneut selbst."}</div></div>`;
 
   PX.route(/^ibbw\/pruefung\/neu$/, () => { if (!wiz) wiz = blankWiz(); return { title: "Prüfung anlegen", shell: "staff", need, render: () => {
     if (!wiz) wiz = blankWiz();
@@ -110,7 +108,6 @@
         <div class="xs muted mt-s">Nur freigegebene Raster des gewählten Fachs. Pro Prüfung genau ein Raster.</div>
         <div class="row mt-s">${rs.some((r) => r.year < 2027) ? `<button class="btn sm" id="w-dup">${icon("copy")} Raster aus dem Vorjahr duplizieren</button>` : ""}<a class="btn sm" href="#/ibbw/raster-import">${icon("file-spreadsheet")} Raster aus Excel importieren</a></div></div>
         <div class="field"><label class="lbl" for="w-kr">Korrekturrichtlinie (optional)</label><select class="select" id="w-kr"><option value="">keine</option>${PX.S.guidelines.map((g) => `<option value="${g.id}" ${w.guideline === g.id ? "selected" : ""}>${esc(g.name)}</option>`).join("")}</select></div>
-        ${zkModeHtml(w.zkMode)}
         <div class="field row"><label class="toggle"><input type="checkbox" id="w-zus" ${w.zusatz ? "checked" : ""}><span></span></label><div><b>Zusatzdateien durch Erstkorrektur erlauben</b><div class="xs muted">Standard: deaktiviert (nur in Ausnahmefällen, z. B. CAD-Dateien)</div></div></div>
         <div class="card soft pad">${signsEditor(w.subject, w.signset || [], w.partSigns, R)}</div></div>
         <div>${R ? PX.rasterPreview(R) : `<div class="card soft pad small muted">${icon("table")} Vorschau des Bewertungsrasters erscheint nach der Auswahl.</div>`}
@@ -122,7 +119,7 @@
       if (!w.raster) errs.push("Bewertungsraster fehlt");
       if (!(w.signset || []).length) errs.push("Keine Korrekturzeichen ausgewählt");
       const R = PX.byId("rasters", w.raster);
-      body = `${PX.kv([["Prüfungsfach", esc(s?.name || "–") + " – " + esc(s?.form || "")], ["Korrekturzeichen", (w.signset || []).map((id) => esc(PX.byId("signs", id)?.code)).join(" ") + (Object.values(w.partSigns).some((x) => x.length) ? `<br><span class="xs muted">eigene Zeichensätze: ${Object.entries(w.partSigns).filter(([, x]) => x.length).map(([p, x]) => esc(R?.parts.find((q) => q.id === p)?.name || p) + " (" + x.length + ")").join(", ")}</span>` : "")], ["Zweitkorrektur", w.zkMode === "abweichung" ? "markiert nur Abweichungen" : "setzt alle Zeichen neu"], ["Bewertungsraster", esc(R?.name || "–")], ["Korrekturrichtlinie", esc(PX.byId("guidelines", w.guideline)?.name || "keine")], ["Zusatzdateien", w.zusatz ? "erlaubt" : "nicht erlaubt"]])}
+      body = `${PX.kv([["Prüfungsfach", esc(s?.name || "–") + " – " + esc(s?.form || "")], ["Korrekturzeichen", (w.signset || []).map((id) => esc(PX.byId("signs", id)?.code)).join(" ") + (Object.values(w.partSigns).some((x) => x.length) ? `<br><span class="xs muted">eigene Zeichensätze: ${Object.entries(w.partSigns).filter(([, x]) => x.length).map(([p, x]) => esc(R?.parts.find((q) => q.id === p)?.name || p) + " (" + x.length + ")").join(", ")}</span>` : "")], ["Bewertungsraster", esc(R?.name || "–")], ["Korrekturrichtlinie", esc(PX.byId("guidelines", w.guideline)?.name || "keine")], ["Zusatzdateien", w.zusatz ? "erlaubt" : "nicht erlaubt"]])}
         <div class="tablewrap mt"><table class="tbl compact"><thead><tr><th>Terminart</th><th>Prüfung</th><th>Quelle</th><th>EK bis</th><th>ZK bis</th><th>EB von – bis</th></tr></thead><tbody>${terms.map(([k, t]) => `<tr><td>${PX.TYPE[k]}</td><td>${PX.fmtDW(t.date)} ${esc(t.time)}–${esc(t.end)}</td><td>${t.cal ? PX.badge("Kalender", "cyan") : PX.badge("abweichend", "yellowb")}</td><td>${PX.fmtD(t.ekEnd)}</td><td>${PX.fmtD(t.zkEnd)}</td><td>${PX.fmtD(t.ebStart)} – ${PX.fmtD(t.ebEnd)}</td></tr>`).join("")}</tbody></table></div>
         ${errs.length ? `<div class="notice warn mt">${icon("circle-alert")}<div><b>Pflichtangaben unvollständig</b><br>${errs.map(esc).join("<br>")}<br><span class="small">Sie können die Prüfung als Entwurf speichern und später vervollständigen.</span></div></div>` : `<div class="notice success mt">${icon("circle-check")}<div>Alle Pflichtangaben sind vollständig. Nach dem Speichern erhalten die Schulleitungsteams eine Information.</div></div>`}`;
     }
@@ -139,7 +136,6 @@
     const ras = $("#w-ras", r); if (ras) ras.onchange = () => { w.raster = ras.value; w.partSigns = {}; PX.rerender(); };
     const kr = $("#w-kr", r); if (kr) kr.onchange = () => (w.guideline = kr.value);
     const zus = $("#w-zus", r); if (zus) zus.onchange = () => (w.zusatz = zus.checked);
-    $$("[data-zkm]", r).forEach((b) => (b.onclick = () => { w.zkMode = b.dataset.zkm; PX.rerender(); }));
     bindSigns(r, w, () => PX.rerender());
     const dup = $("#w-dup", r); if (dup) dup.onclick = () => dupDialog(PX.S.rasters.filter((x) => x.subject === w.subject && x.year < 2027).sort((a, b) => b.year - a.year)[0], (nr) => { w.raster = ""; PX.toast("Raster dupliziert", `„${nr.name}“ als Entwurf angelegt. Bitte prüfen und freigeben – danach steht es hier zur Auswahl.`, "info"); PX.go("#/ibbw/raster/" + nr.id + "?back=wiz"); });
     $("#w-back", r).onclick = () => { w.step--; PX.rerender(); };
@@ -154,7 +150,7 @@
       const terms = Object.entries(w.terms).filter(([, t]) => t.on).map(([type, t]) => { const e = effTerm(w.subject, type, t); return { type, ...t, own: !e.cal, ekEnd: e.ekEnd, zkEnd: e.zkEnd, ebStart: e.ebStart, ebEnd: e.ebEnd }; });
       const errs = terms.flatMap(termErrors); if (!w.raster) errs.push("Raster");
       if (!draft && errs.length) return PX.toast("Speichern nicht möglich", "Pflichtangaben unvollständig – als Entwurf speichern?", "warn");
-      const created = O().createExams({ subject: w.subject, raster: w.raster, guideline: w.guideline, zusatz: w.zusatz, zkMode: w.zkMode, signset: w.signset, partSigns: w.partSigns, terms });
+      const created = O().createExams({ subject: w.subject, raster: w.raster, guideline: w.guideline, zusatz: w.zusatz, signset: w.signset, partSigns: w.partSigns, terms });
       if (draft || errs.length) created.forEach((e) => (e.status = "entwurf"));
       wiz = null; PX.save(); PX.toast(draft ? "Entwurf gespeichert" : "Prüfung gespeichert", `${created.length} Prüfung(en) für ${esc(PX.subj(created[0].subject).name)} angelegt.`); PX.go("#/ibbw/pruefung/" + created[0].id);
     };
@@ -177,7 +173,7 @@
     const tabs = [["stamm", "Stammdaten"], ["grundlagen", "Bewertungsgrundlagen"], ["schulen", `Kursmappen (${kms.length})`]];
     const started = PX.S.now >= e.date;
     let body = "";
-    if (tab === "stamm") body = `<div class="card pad"><div class="grid2"><div>${PX.kv([["Prüfungsfach", esc(PX.subj(e.subject).name) + "<br><span class='xs muted'>" + esc(PX.subj(e.subject).form) + "</span>"], ["Terminart", PX.TYPE[e.type]], ["Prüfungstermin", `${PX.fmtDW(e.date)}, ${esc(e.time)}–${esc(e.end)} Uhr`], ["Zweitkorrektur", e.zkMode === "abweichung" ? "markiert nur Abweichungen" : "setzt alle Korrekturzeichen neu"], ["Status", e.status === "angelegt" ? PX.badge("angelegt", "green") : PX.badge("Entwurf", "yellowb")], ["Angelegt von", esc(PX.name(e.creator))]])}</div>
+    if (tab === "stamm") body = `<div class="card pad"><div class="grid2"><div>${PX.kv([["Prüfungsfach", esc(PX.subj(e.subject).name) + "<br><span class='xs muted'>" + esc(PX.subj(e.subject).form) + "</span>"], ["Terminart", PX.TYPE[e.type]], ["Prüfungstermin", `${PX.fmtDW(e.date)}, ${esc(e.time)}–${esc(e.end)} Uhr`], ["Status", e.status === "angelegt" ? PX.badge("angelegt", "green") : PX.badge("Entwurf", "yellowb")], ["Angelegt von", esc(PX.name(e.creator))]])}</div>
       <div><h3>Korrekturzeiträume ${e.cal ? PX.badge("aus Korrekturkalender " + cal.form + " · " + PX.TYPE[cal.type], "cyan") : PX.badge("abweichend festgelegt", "yellowb")}</h3><div class="timeline">${[["Prüfung / Start EK", e.date], ["Ende Erstkorrektur", e.ekEnd], ["Ende Zweitkorrektur", e.zkEnd], ["Beginn Endbeurteilung", e.ebStart], ["Ende Endbeurteilung", e.ebEnd]].map(([l, d]) => `<div class="${d && d <= PX.S.now ? "past" : ""}"><b>${PX.fmtD(d)}</b><span>${l}</span></div>`).join("")}</div>
       <div class="row mt">${e.cal ? `<a class="btn sm" href="#/ibbw/kalender">${icon("calendar-range")} Kalender öffnen</a><button class="btn sm" id="editdates">${icon("pencil")} Abweichend festlegen</button>` : `<button class="btn sm" id="editdates">${icon("calendar-range")} Zeiträume bearbeiten</button>${cal ? `<button class="btn sm" id="attach">${icon("link")} Kalender wieder übernehmen</button>` : ""}`}</div></div></div></div>
       <div class="row mt"><button class="btn danger" id="delex">${icon("trash-2")} Prüfung löschen</button>${e.status === "entwurf" ? `<button class="btn primary" id="finex">${icon("check")} Entwurf vervollständigen und speichern</button>` : ""}</div>`;
@@ -189,7 +185,7 @@
         ${e.ewh ? `<div class="filechip">${icon("file-text")} <b>${esc(e.ewh.file)}</b><span class="xs muted">hochgeladen am ${PX.fmtD(e.ewh.date)}</span></div><div class="row mt-s"><button class="btn sm" id="ewh">${icon("upload")} Ersetzen</button><button class="btn sm danger" id="ewhdel">${icon("trash-2")} Löschen</button></div>`
           : `<p class="small muted">Noch kein Erwartungshorizont. Upload als PDF frühestens ab Beginn der Prüfung (${PX.fmtDW(e.date)}, ${esc(e.time)} Uhr).</p><button class="btn primary sm" id="ewh" ${tstart ? "" : "disabled"}>${icon("upload")} PDF hochladen</button>${tstart ? "" : `<div class="xs muted mt-s">${icon("clock")} Demo-Zeit auf den Prüfungstag stellen (oben rechts).</div>`}`}
         <div class="notice info mt">${icon("eye-off")}<div class="xs">Für Schulleitungsteams und Korrektor:innen sichtbar ab Ende der Prüfungszeit (${PX.fmtD(e.date)}, ${esc(e.end)} Uhr). Änderungen nach der Prüfung werden den Korrektor:innen als Systemnachricht mitgeteilt.</div></div></div>
-        <div class="card pad mt"><h3>${icon("pen-line")} Korrekturzeichen und Zweitkorrektur</h3>${zkModeHtml(e.zkMode, started)}${signsEditor(e.subject, e.signset || [], e.partSigns || {}, r, started)}<div class="xs muted mt-s">${started ? icon("lock") + " Nach dem Prüfungstag nicht mehr änderbar." : "Änderungen werden sofort gespeichert und protokolliert."}</div></div></div></div>`;
+        <div class="card pad mt"><h3>${icon("pen-line")} Korrekturzeichen</h3>${signsEditor(e.subject, e.signset || [], e.partSigns || {}, r, started)}<div class="xs muted mt-s">${started ? icon("lock") + " Nach dem Prüfungstag nicht mehr änderbar." : "Änderungen werden sofort gespeichert und protokolliert."}</div></div></div></div>`;
     }
     if (tab === "schulen") body = kms.length ? `<div class="tablewrap"><table class="tbl"><thead><tr><th>Schule</th><th>Kursmappe</th><th>Prüflinge</th><th>Phase</th></tr></thead><tbody>${kms.map((k) => { const p = PX.phase(k); return `<tr><td>${esc(PX.orgName(k.school))}</td><td>${esc(k.name)}</td><td>${PX.activeMappen(k).length}</td><td>${PX.badge(p.label, p.kind)}</td></tr>`; }).join("")}</tbody></table></div><p class="xs muted mt-s">Das IBBW sieht nur den formalen Stand – keine personenbezogenen Daten.</p>` : PX.empty("Die Schulen haben noch keine Daten importiert.", "folder");
     return `${PX.pagehead(PX.examLabel(e), PX.subj(e.subject).form, `<a class="btn" href="#/ibbw/pruefungen">${icon("arrow-left")} Alle Prüfungen</a>`)}
@@ -198,7 +194,6 @@
     const e = PX.exam(m[1]); if (!e) return;
     const b = (id, fn) => { const x = $(id, root); if (x) x.onclick = fn; };
     if (PX.S.now < e.date) {
-      $$("[data-zkm]", root).forEach((x) => (x.onclick = () => { e.zkMode = x.dataset.zkm; PX.audit("Zweitkorrektur-Modus geändert", PX.examLabel(e), e.zkMode === "abweichung" ? "markiert Abweichungen" : "setzt alle Zeichen neu"); PX.commit(); }));
       bindSigns(root, e, () => { PX.audit("Korrekturzeichen der Prüfung geändert", PX.examLabel(e), `${e.signset.length} Zeichen`); PX.commit(); });
     }
     b("#ewh", () => PX.modal({ title: "Erwartungshorizont hochladen", icon: "file-up", body: `<div class="dropzone" id="dz">${icon("upload", "xl")}<b>PDF-Datei hierher ziehen</b><span class="small muted">oder auswählen – nur PDF</span><input type="file" accept="application/pdf" id="fi"></div><p class="xs muted mt">Ein vorhandener Erwartungshorizont wird überschrieben.</p>`,

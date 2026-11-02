@@ -72,7 +72,7 @@ Der Fortschritt wird aus den Daten erkannt.
 ## Neu in Version 1.0 (02.11.2026)
 
 - **Korrekturkalender** (IBBW → Korrekturkalender): globale Korrekturzeiträume je Abiturjahr, Schulform (BG/AG) und Terminart. Prüfungen übernehmen sie bei der Anlage und bleiben verknüpft; einzelne Prüfungen können abweichend festgelegt werden.
-- **Prüfungsanlage**: Zweitkorrektur-Modus („setzt alle Zeichen neu“ / „markiert nur Abweichungen“; in beiden Fällen sieht die ZK die Zeichen der EK), Auswahl der Korrekturzeichen je Prüfung und je Prüfungsteil.
+- **Prüfungsanlage**: Auswahl der Korrekturzeichen je Prüfung und je Prüfungsteil.
 - **Bewertungsraster v2**: Prüfungsteile mit eigener Bewertungsart (BE, Notenpunkte, Prozent, Fehlerzahl, nicht korrekturrelevant), Aufgabenbaum beliebiger Tiefe, Wahlregeln „k aus n“ (Schüler- oder Lehrerwahl, verschachtelt), Kombination und Rundung je Fach, Kappung, Zusatz-BE, halbe BE, Gutachten mit Gliederung und landesweiten Textbausteinen, Formblatt-PDF. Editor mit Prüfung und Testrechnung.
 - **Excel-Import** der Aufgabenstruktur (Format der übergebenen Datei) inkl. Vorlage und Beispiel.
 - **Testkorrektur**: jedes Raster im echten Korrekturmodus ausprobieren (Bewertungsraster → Test).

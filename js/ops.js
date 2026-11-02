@@ -45,7 +45,6 @@
     const subj = st.subjects.find((x) => x.id === e.subject); const form = /allgemein/i.test(subj?.form || "") ? "AG" : "BG";
     const cal = st.calendars.find((c) => c.form === form && c.type === e.type && c.year === e.year);
     if (cal && !e.ekEnd) { e.cal = cal.id; PX.CAL_FIELDS.forEach(([f]) => (e[f] = cal[f])); }
-    if (!e.zkMode) e.zkMode = "neu";
     if (!e.partSigns) e.partSigns = {};
     if (!e.signset) e.signset = st.signs.filter((z) => z.subjects.includes(e.subject)).map((z) => z.id);
     return e;
@@ -105,7 +104,7 @@
     let km = sb.kms.find((k) => k.id === kmId);
     if (!km) {
       const real = S().exams.find((e) => e.raster === r.id);
-      const ex = PX.initExam({ id: exId, subject: r.subject, type: "HT", year: r.year || 2027, date: "2027-04-20", raster: r.id, guideline: real?.guideline || "", status: "test", sandbox: true, zkMode: real?.zkMode || "neu", ewh: { file: "Erwartungshorizont_Test.pdf", date: S().now }, partSigns: PX.clone(real?.partSigns || {}), signset: real?.signset ? [...real.signset] : undefined });
+      const ex = PX.initExam({ id: exId, subject: r.subject, type: "HT", year: r.year || 2027, date: "2027-04-20", raster: r.id, guideline: real?.guideline || "", status: "test", sandbox: true, ewh: { file: "Erwartungshorizont_Test.pdf", date: S().now }, partSigns: PX.clone(real?.partSigns || {}), signset: real?.signset ? [...real.signset] : undefined });
       ex.ekEnd = ex.zkEnd = ex.ebStart = ex.ebEnd = "2099-12-31"; sb.exams.push(ex);
       km = { id: kmId, exam: exId, school: "afs", course: "TEST-" + (PX.subj(r.subject)?.short || ""), name: "Testkursmappe", teachers: [], status: "freigegeben", scanReleased: true, sandbox: true, stages: { ek: { lkDone: [], sltOk: true }, zk: { lkDone: [], sltOk: true }, eb: { lkDone: [], sltOk: false } } };
       sb.kms.push(km);
@@ -127,7 +126,7 @@
     d.terms.forEach((t) => {
       const cal = PX.calendarFor(PX.schulform(d.subject), t.type, +t.date.slice(0, 4));
       const own = t.own || !cal;
-      const ex = { id: PX.uid("ex-"), subject: d.subject, type: t.type, year: +t.date.slice(0, 4), date: t.date, time: t.time || "08:30", end: t.end || "13:00", cal: own ? null : cal.id, ekEnd: own ? t.ekEnd : cal.ekEnd, zkEnd: own ? t.zkEnd : cal.zkEnd, ebStart: own ? t.ebStart : cal.ebStart, ebEnd: own ? t.ebEnd : cal.ebEnd, raster: d.raster, guideline: d.guideline || "", ewh: null, zusatz: !!d.zusatz, status: "angelegt", creator: PX.actorId() || "r.albrecht", zkMode: d.zkMode || "neu", signset: d.signset || PX.signsFor(d.subject).map((z) => z.id), partSigns: PX.clone(d.partSigns || {}) };
+      const ex = { id: PX.uid("ex-"), subject: d.subject, type: t.type, year: +t.date.slice(0, 4), date: t.date, time: t.time || "08:30", end: t.end || "13:00", cal: own ? null : cal.id, ekEnd: own ? t.ekEnd : cal.ekEnd, zkEnd: own ? t.zkEnd : cal.zkEnd, ebStart: own ? t.ebStart : cal.ebStart, ebEnd: own ? t.ebEnd : cal.ebEnd, raster: d.raster, guideline: d.guideline || "", ewh: null, zusatz: !!d.zusatz, status: "angelegt", creator: PX.actorId() || "r.albrecht", signset: d.signset || PX.signsFor(d.subject).map((z) => z.id), partSigns: PX.clone(d.partSigns || {}) };
       S().exams.push(ex); created.push(ex);
       PX.audit("Prüfung angelegt", PX.examLabel(ex), `Termin ${PX.fmtD(ex.date)}, ${ex.cal ? "Korrekturkalender übernommen" : "eigene Korrekturzeiträume"}: EK bis ${PX.fmtD(ex.ekEnd)}, ZK bis ${PX.fmtD(ex.zkEnd)}, EB ${PX.fmtD(ex.ebStart)}–${PX.fmtD(ex.ebEnd)}`);
     });
