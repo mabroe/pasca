@@ -81,7 +81,7 @@
     $$("[data-pset]", root).forEach((i) => (i.onchange = () => { const [p, z] = i.dataset.pset.split("|"); holder.partSigns = holder.partSigns || {}; const cur = holder.partSigns[p] || []; holder.partSigns[p] = i.checked ? [...cur, z] : cur.filter((x) => x !== z); rerender(); }));
   }
   const zkModeHtml = (v, ro) => `<div class="field"><label class="lbl">Zweitkorrektur</label><div class="segmented"><button data-zkm="neu" class="${v !== "abweichung" ? "active" : ""}" ${ro ? "disabled" : ""}>setzt alle Korrekturzeichen neu</button><button data-zkm="abweichung" class="${v === "abweichung" ? "active" : ""}" ${ro ? "disabled" : ""}>markiert nur Abweichungen</button></div>
-    <div class="xs muted mt-s">${v === "abweichung" ? "Die Zweitkorrektur sieht die Zeichen der Erstkorrektur (ohne Punkte und Gutachten) und kennzeichnet abweichende Stellen." : "Die Zweitkorrektur sieht keine Zeichen der Erstkorrektur und setzt alle Korrekturzeichen selbst."}</div></div>`;
+    <div class="xs muted mt-s">${v === "abweichung" ? "Die Zweitkorrektur sieht die Zeichen der Erstkorrektur (ohne Punkte und Gutachten) und kennzeichnet abweichende Stellen." : "Die Zweitkorrektur sieht die Zeichen der Erstkorrektur (ohne Punkte und Gutachten) und setzt alle Korrekturzeichen erneut selbst."}</div></div>`;
 
   PX.route(/^ibbw\/pruefung\/neu$/, () => { if (!wiz) wiz = blankWiz(); return { title: "Prüfung anlegen", shell: "staff", need, render: () => {
     if (!wiz) wiz = blankWiz();
