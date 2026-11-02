@@ -170,6 +170,6 @@
   PX.phaseBar = (km) => { const p = PX.phase(km); return `<div class="phasebar">${PX.PHASES.map((l, i) => `<span class="${i < p.step ? "done" : i === p.step ? "cur" : ""}">${esc(l)}</span>`).join("")}</div>`; };
   PX.stageColor = { ek: "red", zk: "green", eb: "brown" };
 
-  PX.VERSION = "1.0";
+  PX.VERSION = "1.1";
   PX.start = function () { PX.load(); PX.render(); };
 })();
