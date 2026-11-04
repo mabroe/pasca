@@ -123,7 +123,7 @@
 
   // Regeln (Rundung, Gesamtnote) – Notenschlüssel stehen als Tabellen in PX.KEYS (raster.js)
   const RULES = [
-    { id: "rd-auf", kind: "rundung", name: "Ø Erst-/Zweitkorrektur auf volle Notenpunkte aufrunden", def: "ceil", note: "Lastenheft 3.2.8" },
+    { id: "rd-auf", kind: "rundung", name: "Ø Erst-/Zweitkorrektur auf volle Notenpunkte aufrunden", def: "ceil", note: "Standardregel" },
     { id: "rd-ceil1", kind: "rundung", name: "Zwischenergebnis auf eine Nachkommastelle aufrunden (Fremdsprachen BG)", def: "ceil1", note: "Berechnungstabelle Fremdsprachen BG" },
     { id: "rd-kfm", kind: "rundung", name: "Kaufmännisch auf ganze Notenpunkte", def: "round", note: "u. a. Alte Sprachen, Fremdsprachen AG" },
     { id: "gn-std", kind: "gesamtnote", name: "Endnote: Endbeurteilung, sonst Ø EK/ZK", def: "eb_or_avg", note: "Endbeurteilung bei > 3 NP Abweichung, AG zusätzlich Stichprobe 2 je Kurs" },

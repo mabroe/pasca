@@ -135,7 +135,7 @@
     if (!view) view = { title: "Nicht gefunden", shell: "staff", render: () => PX.empty("Diese Seite gibt es nicht. <a href='#/'>Zur Startseite</a>", "circle-help") };
     if (view.redirect) { location.replace(view.redirect); return; }
     if (view.need && !view.need.includes(PX.role())) {
-      view = { title: "Kein Zugriff", shell: "staff", render: () => `<div class="notice warn">${PX.icon("lock")}<div><b>Kein Zugriff in dieser Rolle.</b><br>Die Ansicht gehört zu einer anderen Rolle. Der Datenraum ist berechtigungsbezogen eingegrenzt (Lastenheft 3.3). <a href="#/">Rolle wechseln</a></div></div>` };
+      view = { title: "Kein Zugriff", shell: "staff", render: () => `<div class="notice warn">${PX.icon("lock")}<div><b>Kein Zugriff in dieser Rolle.</b><br>Die Ansicht gehört zu einer anderen Rolle. Der Datenraum ist berechtigungsbezogen eingegrenzt. <a href="#/">Rolle wechseln</a></div></div>` };
     }
     current = view;
     if (PX.guide) PX.guide.visit(location.hash.split("?")[0]);

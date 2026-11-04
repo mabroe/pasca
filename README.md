@@ -1,6 +1,6 @@
 # PASCA – Klickdummy „Digitale Korrektur von Abiturprüfungen“
 
-Interaktiver Klickdummy zum Lastenheft PASCA (Stand 23.10.2026). Designsystem und Bedienprinzip
+Interaktiver Klickdummy zu PASCA. Designsystem und Bedienprinzip
 (Rollenwahl, Rollenkarten, Klickstrecken mit Leitfaden) sind vom Exam-Klickdummy übernommen (Landesstyle).
 
 > Nur für Demonstrationszwecke. Alle Personen, Schulen und Prüflinge sind fiktiv.
@@ -62,12 +62,12 @@ Der Fortschritt wird aus den Daten erkannt.
 | `css/base.css` | Designsystem aus dem Exam-Klickdummy |
 | `css/pasca.css` | PASCA-Ergänzungen |
 
-## Vereinfachungen gegenüber dem Lastenheft
+## Vereinfachungen im Klickdummy
 
 - Anmeldung über IDAM/2FA wird durch die Rollenwahl ersetzt.
 - Scans, PDFs und Erwartungshorizont sind simuliert; „PDF“ = Druckansicht des Browsers.
 - „Demo-Abkürzung“ korrigiert übrige Mappen automatisch, damit Klickstrecken kurz bleiben.
-- Nachscan-Anforderung der Erstkorrektur ist (wie im Lastenheft) nicht systemgestützt.
+- Nachscan-Anforderung der Erstkorrektur ist nicht systemgestützt.
 
 ## Neu in Version 1.0 (02.11.2026)
 

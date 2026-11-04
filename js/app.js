@@ -98,7 +98,7 @@
     const d = PX.cardData(c);
     const guides = (PX.GUIDES || []).filter((g) => g.steps().some((s) => s.as && s.as.role === c.key && (!c.stage || !s.as.stage || s.as.stage === c.stage)));
     PX.modal({ title: "Rollenkarte: " + d.label, size: "wide", icon: d.icon,
-      body: `<div class="rcard"><div class="rcard-head ${c.color || ""}"><div class="rico">${icon(d.icon, "xl")}</div><div><div class="xs muted bold">${esc(d.group)}</div><h3>${esc(d.label)}</h3><div class="small">Anwendungsfälle laut Lastenheft: <b>${esc(d.awf)}</b></div></div></div>
+      body: `<div class="rcard"><div class="rcard-head ${c.color || ""}"><div class="rico">${icon(d.icon, "xl")}</div><div><div class="xs muted bold">${esc(d.group)}</div><h3>${esc(d.label)}</h3><div class="small">Anwendungsfälle: <b>${esc(d.awf)}</b></div></div></div>
         <div class="grid2 mt"><div><h4>${icon("list-checks")} Aufgaben im Verfahren</h4><ul class="tight">${d.tasks.map((t) => `<li>${esc(t)}</li>`).join("")}</ul></div>
         <div><h4>${icon("lock")} Rechte und Sichtbarkeit</h4><ul class="tight">${d.rights.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
         <h4 class="mt">${icon("workflow")} Teilprozesse</h4><div class="row wrap" style="gap:6px">${d.process.map((p) => PX.badge(p, "gray")).join("")}</div></div></div>
@@ -135,13 +135,13 @@
       <ul>${d.tasks.slice(0, 3).map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
       <label class="lbl mt-s" for="p${i}">Person</label><select class="select" id="p${i}">${d.persons.map((p) => `<option value="${p}">${esc(PX.name(p))} (${esc(PX.orgShort(PX.byId("persons", p).org))})</option>`).join("")}</select>
       <button class="btn primary" data-enter="${i}">${icon("arrow-right")} Anmelden</button></div>`; };
-    return { title: "Rollenwahl", render: () => `<div class="start"><header class="topbar">${PX.brand()}<span class="bold hide-s">Klickdummy · Lastenheft Stand 23.10.2026</span></header>
+    return { title: "Rollenwahl", render: () => `<div class="start"><header class="topbar">${PX.brand()}<span class="bold hide-s">Klickdummy</span></header>
       <div class="wrap">
         <h1>Anmelden als …</h1>
-        <p class="lead mt">Klickdummy zum Lastenheft PASCA. Er bildet den Gesamtprozess der digitalen Korrektur ab – vom Anlegen der Prüfung bis zu Berichten und Archivierung. Alle Personen, Schulen und Prüflinge sind fiktiv; die Daten liegen nur in diesem Browser. Oben rechts stellen Sie die <b>Demo-Zeit</b>, damit Fristen und zeitabhängige Regeln greifen.</p>
+        <p class="lead mt">Klickdummy zu PASCA. Er bildet den Gesamtprozess der digitalen Korrektur ab – vom Anlegen der Prüfung bis zu Berichten und Archivierung. Alle Personen, Schulen und Prüflinge sind fiktiv; die Daten liegen nur in diesem Browser. Oben rechts stellen Sie die <b>Demo-Zeit</b>, damit Fristen und zeitabhängige Regeln greifen.</p>
         ${PX.guide ? PX.guide.picker() : ""}
         <h2 class="rolesec">${icon("workflow")} Prozesslandkarte</h2>
-        <p class="small muted">Neun Teilprozesse laut Lastenheft 3.2.1 – ein Klick startet die passende Klickstrecke.</p>
+        <p class="small muted">Neun Teilprozesse – ein Klick startet die passende Klickstrecke.</p>
         ${processMap()}
         ${groups.map((gr) => `<h2 class="rolesec">${icon(gr === "Land" ? "landmark" : gr === "Schulaufsicht" ? "building" : gr === "Schule" ? "school" : "file-pen-line")} ${esc(gr)}</h2>
           <div class="rolegrid">${PX.CARDS.map((c, i) => [c, i]).filter(([c]) => PX.cardData(c).group === gr).map(([c, i]) => card(c, i)).join("")}</div>`).join("")}
@@ -157,7 +157,7 @@
       } };
   }
   PX.route(/^$/, () => startView());
-  PX.route(/^prozess$/, () => ({ title: "Prozesslandkarte", shell: "plain", render: () => `<div class="pagehead"><div><h1>Prozesslandkarte</h1><div class="sub">Hauptprozess der digitalen Korrektur (Lastenheft 3.2.1)</div></div></div>${processMap()}
+  PX.route(/^prozess$/, () => ({ title: "Prozesslandkarte", shell: "plain", render: () => `<div class="pagehead"><div><h1>Prozesslandkarte</h1><div class="sub">Hauptprozess der digitalen Korrektur</div></div></div>${processMap()}
     <div class="card pad mt"><h3>Status der Demo-Prüfung</h3>${PX.mainExam() ? `<p class="small">${esc(PX.examLabel(PX.mainExam()))}</p>${statusTable()}` : `<p class="small muted">Die Prüfung VBWL 2027 ist noch nicht angelegt.</p>`}</div>`, mount: (r) => PX.$$(".pstep", r).forEach((b) => (b.onclick = () => PX.guide.start(b.dataset.guide))) }));
   function statusTable() { return `<div class="tablewrap mt-s"><table class="tbl compact"><thead><tr><th>Kursmappe</th><th>Schule</th><th>Mappen</th><th>Phase</th></tr></thead><tbody>${PX.S.kms.filter((k) => k.exam === PX.mainExam().id).map((k) => { const p = PX.phase(k); return `<tr><td>${esc(k.name)}</td><td>${esc(PX.orgName(k.school))}</td><td>${PX.activeMappen(k).length}</td><td>${PX.badge(p.label, p.kind)}</td></tr>`; }).join("")}</tbody></table></div>`; }
   PX.route(/^rollenkarten$/, () => ({ title: "Rollenkarten", render: () => `<div class="printcards"><div class="row between noprint" style="padding:16px"><a class="btn" href="#/">${icon("arrow-left")} Zurück</a><button class="btn primary" onclick="window.print()">${icon("printer")} Drucken</button></div>
