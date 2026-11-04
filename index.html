@@ -29,6 +29,34 @@
   <script src="js/views-rp.js"></script>
   <script src="js/views-reports.js"></script>
   <script src="js/guide.js"></script>
-  <script>PX.start();</script>
+  <script>
+  // Zugangsschutz (clientseitig): Passwort wird als SHA-256-Hash geprüft, Freischaltung gilt für die Browsersitzung
+  (function () {
+    var H = "0b3bf4f62df836364ff076b87efef962f317b11f845199dfb29b572ad085574a", K = "pasca.gate";
+    var ok = function () { try { return sessionStorage.getItem(K) === H || localStorage.getItem(K) === H; } catch (e) { return false; } };
+    var start = function () { var g = document.getElementById("gate"); if (g) g.remove(); PX.start(); };
+    if (ok()) return start();
+    var sha = function (t) { return crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)).then(function (b) { return Array.from(new Uint8Array(b)).map(function (x) { return x.toString(16).padStart(2, "0"); }).join(""); }); };
+    var d = document.createElement("div"); d.id = "gate";
+    d.innerHTML = '<form class="gate-box"><div class="gate-logo">PASCA</div><div class="gate-sub">Digitale Korrektur von Abiturprüfungen · Klickdummy</div><label for="gpw">Passwort</label><input id="gpw" type="password" autocomplete="current-password" autofocus><label class="gate-rem"><input type="checkbox" id="grem"> auf diesem Gerät merken</label><button type="submit">Anmelden</button><div class="gate-err" id="gerr"></div></form>';
+    document.body.appendChild(d);
+    d.querySelector("form").onsubmit = function (e) {
+      e.preventDefault(); var v = document.getElementById("gpw").value;
+      if (!window.crypto || !crypto.subtle) { document.getElementById("gerr").textContent = "Bitte über https öffnen."; return; }
+      sha(v).then(function (h) { if (h === H) { try { sessionStorage.setItem(K, H); if (document.getElementById("grem").checked) localStorage.setItem(K, H); } catch (e) {} start(); } else { document.getElementById("gerr").textContent = "Passwort falsch."; document.getElementById("gpw").select(); } });
+    };
+  })();
+  </script>
+  <style>
+    #gate { position: fixed; inset: 0; z-index: 99999; background: #fff200; display: grid; place-items: center; font-family: "Noto Sans", Arial, sans-serif; }
+    #gate .gate-box { background: #fff; border: 2px solid #000; padding: 28px 30px; width: min(360px, 90vw); display: flex; flex-direction: column; gap: 8px; box-shadow: 0 8px 30px rgba(0,0,0,.15); }
+    #gate .gate-logo { font-size: 30px; font-weight: 800; letter-spacing: .5px; }
+    #gate .gate-sub { font-size: 13px; color: #555; margin-bottom: 10px; }
+    #gate label { font-size: 13px; font-weight: 600; }
+    #gate input[type=password] { font: inherit; padding: 9px 10px; border: 1.5px solid #333; }
+    #gate .gate-rem { font-weight: 400; display: flex; gap: 6px; align-items: center; }
+    #gate button { font: inherit; font-weight: 700; padding: 10px; background: #000; color: #fff; border: 0; cursor: pointer; margin-top: 6px; }
+    #gate .gate-err { color: #c0281f; font-size: 13px; min-height: 18px; }
+  </style>
 </body>
 </html>
