@@ -292,7 +292,7 @@
   // ---------- Prüfungstag ----------
   O.setNTA = function (mid, text) { const m = PX.mappe(mid); m.nta = text; PX.audit(text ? "Nachteilsausgleich erfasst" : "Nachteilsausgleich entfernt", `${m.first} ${m.last}`, text); };
   O.genCovers = function (kmId) { const km = PX.km(kmId); km.covers = true; km.coversAt = S().now; PX.audit("Deckblätter erzeugt", PX.kmLabel(km), `${PX.activeMappen(km).length} Deckblätter mit Barcode`); };
-  O.markAbsent = function (mid, kind) { const m = PX.mappe(mid); m.absent = kind; PX.audit(kind ? "Nicht-Teilnahme erfasst" : "Nicht-Teilnahme zurückgenommen", `${m.first} ${m.last}`, kind ? (kind === "entschuldigt" ? "entschuldigt" : "unentschuldigt") : ""); };
+  O.markAbsent = function (mid, kind, pre) { const m = PX.mappe(mid); m.absent = kind; m.absentPre = !!(kind && pre); PX.audit(kind ? (pre ? "Nicht-Teilnahme vorgemerkt" : "Nicht-Teilnahme erfasst") : "Nicht-Teilnahme zurückgenommen", `${m.first} ${m.last}`, kind ? (kind === "entschuldigt" ? "entschuldigt" : "unentschuldigt") : ""); };
   O.registerNT = function (mid) {
     const m = PX.mappe(mid); const km = PX.km(m.km); const ex = PX.exam(km.exam);
     const nt = S().exams.find((e) => e.subject === ex.subject && e.year === ex.year && e.type === (ex.type === "HT" ? "NT" : "NNT"));
